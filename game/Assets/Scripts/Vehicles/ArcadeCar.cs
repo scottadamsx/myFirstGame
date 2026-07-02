@@ -43,8 +43,10 @@ public class ArcadeCar : MonoBehaviour
         var kb = Keyboard.current;
         if (kb == null) return;
 
-        float throttle = (kb.wKey.isPressed ? 1 : 0) - (kb.sKey.isPressed ? 1 : 0);
-        float steer = (kb.dKey.isPressed ? 1 : 0) - (kb.aKey.isPressed ? 1 : 0);
+        float throttle = (kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1 : 0)
+                       - (kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1 : 0);
+        float steer = (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1 : 0)
+                    - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1 : 0);
         bool handbrake = kb.spaceKey.isPressed;
 
         if (!Grounded) return;

@@ -9,7 +9,7 @@ public class VehicleManager : MonoBehaviour
     public ArcadeCar DrivenCar { get; private set; }
 
     const int ParkedCars = 45;
-    const float EnterRange = 4.5f;
+    const float EnterRange = 6f;
 
     GameManager gm;
     Transform cam;
@@ -24,6 +24,18 @@ public class VehicleManager : MonoBehaviour
         var playerCam = Camera.main;
         cam = playerCam != null ? playerCam.transform : null;
         SpawnParkedCars();
+        SpawnStarterCar();
+    }
+
+    /// A guaranteed bright-red car right beside the player spawn.
+    void SpawnStarterCar()
+    {
+        if (gm.Player == null) return;
+        Vector3 pos = gm.Player.transform.position + gm.Player.transform.forward * 6f + gm.Player.transform.right * 2f;
+        pos = CoordinateMapper.DropToGround(pos + Vector3.up * 10f, 10f) + Vector3.up * 0.3f;
+        var car = ArcadeCar.SpawnParked(pos, Quaternion.LookRotation(gm.Player.transform.forward), new Color(0.8f, 0.12f, 0.1f));
+        car.gameObject.name = "StarterCar";
+        cars.Add(car);
     }
 
     void SpawnParkedCars()
@@ -78,6 +90,10 @@ public class VehicleManager : MonoBehaviour
                 GameHUD.SetPrompt("[E]  Enter car");
                 if (kb.eKey.wasPressedThisFrame) EnterCar(near);
             }
+            else if (kb.eKey.wasPressedThisFrame && NearestCar(gm.Player.transform.position, 25f) != null)
+            {
+                GameHUD.Toast("Get closer to the car, b'y.");
+            }
         }
         else if (kb.eKey.wasPressedThisFrame)
         {
@@ -96,6 +112,8 @@ public class VehicleManager : MonoBehaviour
         DrivenCar = car;
         car.enabled = true;          // traffic cars ship with physics disabled
         car.playerControlled = true;
+        rb.WakeUp();
+        GameHUD.Toast("W/S drive · A/D steer · Space handbrake · E out");
 
         camOriginalParent = cam.parent;
         camLocalPos = cam.localPosition;

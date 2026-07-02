@@ -45,8 +45,10 @@ public class SimpleWalker : MonoBehaviour
                 cameraPivot.localRotation = Quaternion.Euler(pitch, 0, 0);
         }
 
-        float x = (kb.dKey.isPressed ? 1 : 0) - (kb.aKey.isPressed ? 1 : 0);
-        float z = (kb.wKey.isPressed ? 1 : 0) - (kb.sKey.isPressed ? 1 : 0);
+        float x = (kb.dKey.isPressed || kb.rightArrowKey.isPressed ? 1 : 0)
+                - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1 : 0);
+        float z = (kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1 : 0)
+                - (kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1 : 0);
         float speed = kb.leftShiftKey.isPressed ? sprintSpeed : walkSpeed;
         Vector3 move = (transform.right * x + transform.forward * z).normalized * speed;
 

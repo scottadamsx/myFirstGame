@@ -117,23 +117,32 @@ public class Pedestrian : MonoBehaviour
     Vector3 target;
     bool flung;
 
+    static readonly Color[] Skins =
+    {
+        new Color(0.92f, 0.76f, 0.62f), new Color(0.82f, 0.62f, 0.48f),
+        new Color(0.62f, 0.44f, 0.32f), new Color(0.45f, 0.31f, 0.23f),
+    };
+    static readonly Color[] Hairs =
+    {
+        new Color(0.15f, 0.12f, 0.10f), new Color(0.35f, 0.25f, 0.15f),
+        new Color(0.55f, 0.42f, 0.25f), new Color(0.75f, 0.72f, 0.70f),
+        new Color(0.60f, 0.30f, 0.15f),
+    };
+
     public static Pedestrian Spawn(GameManager gm, RoadData road, int idx, Color coat)
     {
-        var root = new GameObject("Pedestrian");
-
-        var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        Destroy(body.GetComponent<Collider>());
-        body.transform.SetParent(root.transform, false);
-        body.transform.localPosition = new Vector3(0, 0.9f, 0);
-        body.transform.localScale = new Vector3(0.55f, 0.72f, 0.55f);
-        Tint(body, coat);
-
-        var head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        Destroy(head.GetComponent<Collider>());
-        head.transform.SetParent(root.transform, false);
-        head.transform.localPosition = new Vector3(0, 1.78f, 0);
-        head.transform.localScale = Vector3.one * 0.34f;
-        Tint(head, new Color(0.85f, 0.70f, 0.58f));
+        var prng = new System.Random(idx * 977 + 5);
+        var person = ArticulatedPerson.Build(
+            coat,
+            new Color(0.2f + (float)prng.NextDouble() * 0.15f, 0.2f + (float)prng.NextDouble() * 0.12f, 0.25f + (float)prng.NextDouble() * 0.15f),
+            Skins[prng.Next(Skins.Length)],
+            Hairs[prng.Next(Hairs.Length)],
+            prng.Next(4),
+            prng.NextDouble() < 0.45,
+            new Color(0.6f + (float)prng.NextDouble() * 0.4f, 0.25f + (float)prng.NextDouble() * 0.5f, 0.2f + (float)prng.NextDouble() * 0.5f),
+            0.92f + (float)prng.NextDouble() * 0.16f);
+        var root = person.gameObject;
+        root.name = "Pedestrian";
 
         var col = root.AddComponent<CapsuleCollider>();
         col.center = new Vector3(0, 0.95f, 0);
@@ -152,14 +161,6 @@ public class Pedestrian : MonoBehaviour
         ped.transform.position = ped.Point(idx);
         ped.Advance();
         return ped;
-    }
-
-    static void Tint(GameObject go, Color c)
-    {
-        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        mat.SetColor("_BaseColor", c);
-        mat.SetFloat("_Smoothness", 0.2f);
-        go.GetComponent<MeshRenderer>().sharedMaterial = mat;
     }
 
     Vector3 Point(int i)
@@ -208,6 +209,8 @@ public class Pedestrian : MonoBehaviour
         if (carVel.magnitude < 3f) return;
 
         flung = true;
+        var person = GetComponent<ArticulatedPerson>();
+        if (person != null) person.enabled = false;   // stiff ragdoll: freeze the pose
         var rb = GetComponent<Rigidbody>();
         rb.isKinematic = false;
         GetComponent<CapsuleCollider>().isTrigger = false;

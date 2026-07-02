@@ -83,27 +83,17 @@ public class QuestSystem : MonoBehaviour
         marker.GetComponent<MeshRenderer>().sharedMaterial = mat;
     }
 
-    static GameObject BuildNpc(string name, Color coat)
+    static GameObject BuildNpc(string id, Color coat)
     {
-        var root = new GameObject($"NPC_{name}");
-        var body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        Destroy(body.GetComponent<Collider>());
-        body.transform.SetParent(root.transform, false);
-        body.transform.localPosition = new Vector3(0, 0.9f, 0);
-        body.transform.localScale = new Vector3(0.6f, 0.75f, 0.6f);
-        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        mat.SetColor("_BaseColor", coat);
-        body.GetComponent<MeshRenderer>().sharedMaterial = mat;
-
-        var head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        Destroy(head.GetComponent<Collider>());
-        head.transform.SetParent(root.transform, false);
-        head.transform.localPosition = new Vector3(0, 1.85f, 0);
-        head.transform.localScale = Vector3.one * 0.38f;
-        var hmat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-        hmat.SetColor("_BaseColor", new Color(0.85f, 0.7f, 0.58f));
-        head.GetComponent<MeshRenderer>().sharedMaterial = hmat;
-        return root;
+        // fixed looks: Dave the bearded skipper, Bern in glasses, Karen laughing
+        int face = id == "dave" ? 2 : id == "bern" ? 3 : 1;
+        bool toque = id != "karen";
+        Color toqueColor = id == "dave" ? new Color(0.75f, 0.2f, 0.15f) : new Color(0.2f, 0.35f, 0.55f);
+        Color hair = id == "karen" ? new Color(0.4f, 0.25f, 0.14f) : new Color(0.7f, 0.68f, 0.65f);
+        var person = ArticulatedPerson.Build(coat, new Color(0.25f, 0.24f, 0.28f),
+            new Color(0.88f, 0.7f, 0.56f), hair, face, toque, toqueColor, id == "dave" ? 1.05f : 1.0f);
+        person.gameObject.name = $"NPC_{id}";
+        return person.gameObject;
     }
 
     Npc TargetNpc()

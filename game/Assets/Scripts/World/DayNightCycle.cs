@@ -47,12 +47,7 @@ public class DayNightCycle : MonoBehaviour
         RenderSettings.fogEndDistance = Mathf.Lerp(2800f, 7000f, dayness);
         RenderSettings.ambientIntensity = Mathf.Lerp(0.25f, 1f, dayness);
 
-        var cam = Camera.main;
-        if (cam != null)
-        {
-            cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = fog;
-        }
+        // sky is a procedural skybox now (set by VisualUpgrade); it tracks the sun on its own
     }
 
     public string ClockText()

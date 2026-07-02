@@ -48,8 +48,9 @@ def new_object(name, mesh):
     return ob
 
 
-def make_mesh_fast(name, verts_np, quads_np=None, tris_np=None, ngons=None):
-    """verts_np float (n,3); quads/tris int arrays; ngons list of index lists."""
+def make_mesh_fast(name, verts_np, quads_np=None, tris_np=None, ngons=None, uvs=None):
+    """verts_np float (n,3); quads/tris int arrays; ngons list of index lists;
+    uvs: per-loop (n_loops, 2) float array in the same order faces are added."""
     mesh = bpy.data.meshes.new(name)
     n = len(verts_np)
     mesh.vertices.add(n)
@@ -77,6 +78,9 @@ def make_mesh_fast(name, verts_np, quads_np=None, tris_np=None, ngons=None):
     mesh.polygons.add(len(starts))
     mesh.polygons.foreach_set("loop_start", starts.astype(np.int32))
     mesh.polygons.foreach_set("loop_total", totals)
+    if uvs is not None:
+        layer = mesh.uv_layers.new(name="UVMap")
+        layer.data.foreach_set("uv", np.asarray(uvs, dtype=np.float32).ravel())
     mesh.update(calc_edges=True)
     mesh.validate()
     return mesh
@@ -107,7 +111,8 @@ ii, jj = np.meshgrid(np.arange(NX - 1), np.arange(NY - 1))
 v0 = (jj * NX + ii).ravel()
 tquads = np.stack([v0, v0 + 1, v0 + NX + 1, v0 + NX], axis=1)
 
-tmesh = make_mesh_fast("Terrain", tverts, quads_np=tquads)
+terrain_uvs = tverts[tquads.ravel()][:, :2] / 8.0   # ~8 m grass tile
+tmesh = make_mesh_fast("Terrain", tverts, quads_np=tquads, uvs=terrain_uvs)
 
 # vertex colors from landcover + slope + shoreline
 gy_, gx_ = np.gradient(HM, STEP)
@@ -135,14 +140,15 @@ print(f"terrain: {len(tverts)} verts", flush=True)
 
 # ---------------- roads ---------------------------------------------------------
 def build_ribbons(items, z_off):
-    verts, quads = [], []
+    verts, quads, uvs = [], [], []
     base = 0
     for it in items:
         pts = np.asarray(it["pts"], dtype=np.float64)
         if len(pts) < 2:
             continue
         seg = np.diff(pts, axis=0)
-        seg_n = seg / np.maximum(np.linalg.norm(seg, axis=1, keepdims=True), 1e-9)
+        seg_len = np.linalg.norm(seg, axis=1)
+        seg_n = seg / np.maximum(seg_len[:, None], 1e-9)
         vn = np.vstack([seg_n[:1], (seg_n[:-1] + seg_n[1:]) / 2, seg_n[-1:]])
         vn /= np.maximum(np.linalg.norm(vn, axis=1, keepdims=True), 1e-9)
         perp = np.stack([-vn[:, 1], vn[:, 0]], axis=1)
@@ -154,25 +160,31 @@ def build_ribbons(items, z_off):
         n = len(pts)
         verts.append(np.column_stack([left, zl]))
         verts.append(np.column_stack([right, zr]))
+        v_along = np.concatenate([[0], np.cumsum(seg_len)]) / 12.0   # texture repeats every 12 m
+        uvs.append(np.column_stack([np.zeros(n), v_along]))          # left edge: u=0
+        uvs.append(np.column_stack([np.ones(n), v_along]))           # right edge: u=1
         li = base + np.arange(n)
         ri = base + n + np.arange(n)
         quads.append(np.stack([li[:-1], ri[:-1], ri[1:], li[1:]], axis=1))
         base += 2 * n
     if not verts:
         return None
-    return np.concatenate(verts), np.concatenate(quads)
+    verts = np.concatenate(verts)
+    quads = np.concatenate(quads)
+    vert_uvs = np.concatenate(uvs)
+    return verts, quads, vert_uvs[quads.ravel()]
 
 
 roads = [r for r in VEC["roads"] if r["kind"] == "road"]
 paths = [r for r in VEC["roads"] if r["kind"] == "path"]
 rv = build_ribbons(roads, 0.45)
 if rv:
-    m = make_mesh_fast("Roads", rv[0], quads_np=rv[1])
+    m = make_mesh_fast("Roads", rv[0], quads_np=rv[1], uvs=rv[2])
     m.materials.append(flat_material("Asphalt", (0.055, 0.055, 0.06), rough=0.95))
     new_object("Roads", m)
 pv = build_ribbons(paths, 0.40)
 if pv:
-    m = make_mesh_fast("Paths", pv[0], quads_np=pv[1])
+    m = make_mesh_fast("Paths", pv[0], quads_np=pv[1], uvs=pv[2])
     m.materials.append(flat_material("Path", (0.34, 0.31, 0.27), rough=1.0))
     new_object("Paths", m)
 print(f"roads: {len(roads)} ways, paths: {len(paths)}", flush=True)
@@ -180,6 +192,7 @@ print(f"roads: {len(roads)} ways, paths: {len(paths)}", flush=True)
 # ---------------- buildings -----------------------------------------------------
 bverts, bquads, bngons = [], [], []
 loop_cols = []  # per-loop RGBA, appended in same order faces are added
+wall_uvs, roof_uvs = [], []
 vbase = 0
 for bld in VEC["buildings"]:
     poly = np.asarray(bld["poly"], dtype=np.float64)
@@ -199,6 +212,22 @@ for bld in VEC["buildings"]:
     loop_cols.extend([c] * (4 * n))       # wall loops
     bngons.append(top.tolist())           # roof ngon (CCW -> +Z normal)
     loop_cols.extend([rc] * n)            # roof loops
+
+    # facade UVs: one texture tile = 3 m wide x 1 storey; whole storeys only
+    seg_len = np.linalg.norm(poly[nxt] - poly, axis=1)
+    cum = np.concatenate([[0.0], np.cumsum(seg_len)[:-1]])
+    u0 = cum / 3.0
+    u1 = (cum + seg_len) / 3.0
+    storeys = max(1.0, round(bld["height"] / 3.0))
+    uq = np.zeros((n, 4, 2))
+    uq[:, 0, 0] = u0
+    uq[:, 1, 0] = u1
+    uq[:, 2, 0] = u1
+    uq[:, 2, 1] = storeys
+    uq[:, 3, 0] = u0
+    uq[:, 3, 1] = storeys
+    wall_uvs.append(uq.reshape(-1, 2))
+    roof_uvs.append(poly / 3.0)
     vbase += 2 * n
 
 if bverts:
@@ -209,8 +238,9 @@ if bverts:
         n = len(bld["poly"])
         wall_cols.extend(loop_cols[i:i + 4 * n]); i += 4 * n
         roof_cols.extend(loop_cols[i:i + n]); i += n
+    building_uvs = np.concatenate(wall_uvs + roof_uvs)   # walls-first order matches face order
     bmesh_ = make_mesh_fast("Buildings", np.concatenate(bverts),
-                            quads_np=np.concatenate(bquads), ngons=bngons)
+                            quads_np=np.concatenate(bquads), ngons=bngons, uvs=building_uvs)
     vc = bmesh_.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
     allc = np.asarray(wall_cols + roof_cols, dtype=np.float32)
     vc.data.foreach_set("color", allc.ravel())

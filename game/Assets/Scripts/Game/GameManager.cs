@@ -38,6 +38,7 @@ public class GameManager : MonoBehaviour
         Physics.SyncTransforms();
         Mapper.Calibrate(City);
 
+        gameObject.AddComponent<VisualUpgrade>();
         gameObject.AddComponent<DayNightCycle>();
         gameObject.AddComponent<VehicleManager>();
         gameObject.AddComponent<TrafficSystem>();

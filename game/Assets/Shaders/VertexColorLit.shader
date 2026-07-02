@@ -1,10 +1,10 @@
-// Minimal URP lit shader driven by vertex colors — the city meshes
-// (Terrain, Buildings) carry their colors as vertex color attributes.
+// URP lit shader: detail texture (siding/windows/grass) x vertex color (hue).
 Shader "StJohns/VertexColorLit"
 {
     Properties
     {
         _BaseColor("Base Color", Color) = (1, 1, 1, 1)
+        _BaseMap("Detail Texture", 2D) = "white" {}
     }
     SubShader
     {
@@ -29,19 +29,25 @@ Shader "StJohns/VertexColorLit"
                 float4 positionOS : POSITION;
                 float3 normalOS   : NORMAL;
                 float4 color      : COLOR;
+                float2 uv         : TEXCOORD0;
             };
 
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
-                float3 normalWS   : TEXCOORD0;
-                float3 positionWS : TEXCOORD1;
-                float4 color      : TEXCOORD2;
-                float  fogCoord   : TEXCOORD3;
+                float2 uv         : TEXCOORD0;
+                float3 normalWS   : TEXCOORD1;
+                float3 positionWS : TEXCOORD2;
+                float4 color      : TEXCOORD3;
+                float  fogCoord   : TEXCOORD4;
             };
+
+            TEXTURE2D(_BaseMap);
+            SAMPLER(sampler_BaseMap);
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseColor;
+                float4 _BaseMap_ST;
             CBUFFER_END
 
             Varyings vert(Attributes IN)
@@ -51,6 +57,7 @@ Shader "StJohns/VertexColorLit"
                 OUT.positionCS = TransformWorldToHClip(OUT.positionWS);
                 OUT.normalWS = TransformObjectToWorldNormal(IN.normalOS);
                 OUT.color = IN.color;
+                OUT.uv = TRANSFORM_TEX(IN.uv, _BaseMap);
                 OUT.fogCoord = ComputeFogFactor(OUT.positionCS.z);
                 return OUT;
             }
@@ -62,7 +69,8 @@ Shader "StJohns/VertexColorLit"
                 Light mainLight = GetMainLight(shadowCoord);
                 float ndl = saturate(dot(n, mainLight.direction));
                 float3 lighting = mainLight.color * mainLight.shadowAttenuation * ndl + SampleSH(n);
-                float3 c = IN.color.rgb * _BaseColor.rgb * lighting;
+                float3 detail = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv).rgb;
+                float3 c = detail * IN.color.rgb * _BaseColor.rgb * lighting;
                 c = MixFog(c, IN.fogCoord);
                 return half4(c, 1);
             }

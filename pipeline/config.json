@@ -1,0 +1,13 @@
+{
+  "name": "downtown",
+  "bbox": {
+    "south": 47.548,
+    "west": -52.735,
+    "north": 47.586,
+    "east": -52.658
+  },
+  "elevation_zoom": 15,
+  "terrain_step_m": 10,
+  "downloads_dir": "downloads",
+  "output_dir": "output"
+}

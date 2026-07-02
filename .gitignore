@@ -36,6 +36,8 @@ crashlytics-build.properties
 # ===== Pipeline: raw geodata downloads (big; re-downloadable, never commit) =====
 pipeline/cache/
 pipeline/downloads/
+pipeline/output/
+pipeline/.venv/
 *.osm
 *.osm.pbf
 *.tif

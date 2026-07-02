@@ -47,20 +47,55 @@ for r in VEC["roads"]:
         "kind": r["kind"],
     })
 
-LANDMARKS = [
-    ("Harbourfront", 47.5610, -52.7080),
-    ("George Street", 47.5623, -52.7075),
-    ("The Rooms", 47.5657, -52.7146),
-    ("Cabot Tower", 47.5700, -52.6817),
-    ("Quidi Vidi", 47.5805, -52.6690),
-    ("The Battery", 47.5678, -52.6920),
-]
+# Landmarks are found by NAME in the OSM data itself (hand-typed lat/lon put
+# Skipper Dave in the harbour), then snapped to the nearest road point so quest
+# NPCs always stand on the street network — never in the water.
+DL = HERE / CFG["downloads_dir"]
+osm = json.loads((DL / f"{NAME}_osm.json").read_text())
+
+TARGETS = {
+    "Harbourfront": ["Water Street"],
+    "George Street": ["George Street"],
+    "The Rooms": ["The Rooms"],
+    "Cabot Tower": ["Cabot Tower"],
+    "Quidi Vidi": ["Quidi Vidi Village Road", "Quidi Vidi Road"],
+    "The Battery": ["Battery Road", "Outer Battery Road"],
+}
+FALLBACK = {
+    "Harbourfront": (47.5619, -52.7075), "George Street": (47.5640, -52.7095),
+    "The Rooms": (47.5661, -52.7135), "Cabot Tower": (47.5703, -52.6819),
+    "Quidi Vidi": (47.5806, -52.6689), "The Battery": (47.5680, -52.6935),
+}
+
+name_pts = {}
+for el in osm["elements"]:
+    if el.get("type") != "way" or "geometry" not in el:
+        continue
+    n = el.get("tags", {}).get("name", "")
+    if not n:
+        continue
+    for lm, names in TARGETS.items():
+        if n in names:
+            name_pts.setdefault(lm, []).extend(
+                ((g["lon"] - LON0) * M_LON, (g["lat"] - LAT0) * M_LAT) for g in el["geometry"])
+
+# flat array of every road point for snapping
+all_pts = np.concatenate([np.column_stack([r["xs"], r["ys"], r["zs"]]) for r in roads])
+
 landmarks = []
-for name, lat, lon in LANDMARKS:
-    x = (lon - LON0) * M_LON
-    y = (lat - LAT0) * M_LAT
-    z = float(sample_h(x, y))
-    landmarks.append({"name": name, "x": round(x, 1), "y": round(y, 1), "z": round(z + 0.6, 1)})
+for lm in TARGETS:
+    if lm in name_pts:
+        pts = np.asarray(name_pts[lm])
+        cx, cy = pts.mean(axis=0)
+        src = "osm"
+    else:
+        lat, lon = FALLBACK[lm]
+        cx, cy = (lon - LON0) * M_LON, (lat - LAT0) * M_LAT
+        src = "fallback"
+    i = int(np.argmin((all_pts[:, 0] - cx) ** 2 + (all_pts[:, 1] - cy) ** 2))
+    x, y, z = all_pts[i]
+    landmarks.append({"name": lm, "x": round(float(x), 1), "y": round(float(y), 1), "z": round(float(z), 1)})
+    print(f"  landmark {lm}: {src}, snapped to road at ({x:.0f}, {y:.0f}, z={z:.1f})")
 
 data = {"roads": roads, "landmarks": landmarks}
 dest = DEST / "stjohns_game_data.json"

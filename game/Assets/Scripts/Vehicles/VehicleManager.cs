@@ -27,15 +27,43 @@ public class VehicleManager : MonoBehaviour
         SpawnStarterCar();
     }
 
-    /// A guaranteed bright-red car right beside the player spawn.
+    /// A guaranteed bright-red car parked on the nearest road to the player.
     void SpawnStarterCar()
     {
         if (gm.Player == null) return;
-        Vector3 pos = gm.Player.transform.position + gm.Player.transform.forward * 6f + gm.Player.transform.right * 2f;
-        pos = CoordinateMapper.DropToGround(pos + Vector3.up * 10f, 10f) + Vector3.up * 0.3f;
-        var car = ArcadeCar.SpawnParked(pos, Quaternion.LookRotation(gm.Player.transform.forward), new Color(0.8f, 0.12f, 0.1f));
+        Vector3 p = gm.Player.transform.position;
+        Vector3 bestPos = p + Vector3.forward * 6f;
+        Vector3 bestDir = Vector3.forward;
+        float best = float.MaxValue;
+        foreach (var r in gm.City.roads)
+        {
+            if (r.kind != "road" || r.PointCount < 2) continue;
+            for (int i = 0; i < r.PointCount - 1; i++)
+            {
+                Vector3 a = gm.Mapper.ToUnity(r.xs[i], r.ys[i], r.zs[i]);
+                float d = (a - p).sqrMagnitude;
+                if (d < best)
+                {
+                    best = d;
+                    bestPos = a;
+                    Vector3 b = gm.Mapper.ToUnity(r.xs[i + 1], r.ys[i + 1], r.zs[i + 1]);
+                    bestDir = (b - a).normalized;
+                }
+            }
+        }
+        Vector3 pos = CoordinateMapper.DropToGround(bestPos + Vector3.up * 5f, 5f) + Vector3.up * 0.3f;
+        var car = ArcadeCar.SpawnParked(pos, Quaternion.LookRotation(bestDir), new Color(0.8f, 0.12f, 0.1f));
         car.gameObject.name = "StarterCar";
         cars.Add(car);
+        Debug.Log($"StarterCar at {pos}, {Vector3.Distance(pos, p):F0} m from player");
+    }
+
+    /// Distance to the nearest enterable car (for the HUD); -1 if none exist.
+    public float NearestCarDistance()
+    {
+        if (gm.Player == null) return -1f;
+        var near = NearestCar(gm.Player.transform.position, float.MaxValue);
+        return near == null ? -1f : Vector3.Distance(gm.Player.transform.position, near.transform.position);
     }
 
     void SpawnParkedCars()

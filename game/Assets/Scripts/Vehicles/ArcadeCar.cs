@@ -31,7 +31,7 @@ public class ArcadeCar : MonoBehaviour
         rb.angularDamping = 4f;
         rb.centerOfMass = new Vector3(0, -0.45f, 0);
         rb.interpolation = RigidbodyInterpolation.Interpolate;
-        rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;  // valid for kinematic parked cars too
     }
 
     public bool Grounded =>

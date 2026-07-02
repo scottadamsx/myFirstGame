@@ -72,8 +72,30 @@ public class GameHUD : MonoBehaviour
         var quests = gm.GetComponent<QuestSystem>();
         if (quests != null)
         {
-            GUI.Box(new Rect(16, 12, 560, 34), "");
-            GUI.Label(new Rect(28, 18, 540, 26), $"<b>OBJECTIVE</b>   {quests.ObjectiveText()}", label);
+            GUI.Box(new Rect(16, 12, 620, 34), "");
+            GUI.Label(new Rect(28, 18, 600, 26), $"<b>OBJECTIVE</b>   {quests.ObjectiveText()}", label);
+        }
+
+        // car status line: speedometer while driving, nearest-car pointer on foot
+        var vm = gm.GetComponent<VehicleManager>();
+        if (vm != null)
+        {
+            string carLine = null;
+            if (vm.DrivenCar != null)
+            {
+                var rb = vm.DrivenCar.GetComponent<Rigidbody>();
+                carLine = $"<b>{(rb != null ? rb.linearVelocity.magnitude * 3.6f : 0):F0} km/h</b>";
+            }
+            else
+            {
+                float d = vm.NearestCarDistance();
+                if (d >= 0) carLine = d < 6f ? "<b>Car right here — press E</b>" : $"Nearest car: {d:F0} m";
+            }
+            if (carLine != null)
+            {
+                GUI.Box(new Rect(16, 50, 250, 30), "");
+                GUI.Label(new Rect(28, 54, 230, 24), carLine, label);
+            }
         }
 
         // clock (top-right, above minimap)

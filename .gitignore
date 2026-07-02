@@ -1,0 +1,41 @@
+# ===== Unity (project lives in game/) =====
+game/[Ll]ibrary/
+game/[Tt]emp/
+game/[Oo]bj/
+game/[Bb]uild/
+game/[Bb]uilds/
+game/[Ll]ogs/
+game/[Uu]ser[Ss]ettings/
+game/[Mm]emoryCaptures/
+game/[Rr]ecordings/
+game/.vsconfig
+*.unitypackage
+*.apk
+*.aab
+*.app
+sysinfo.txt
+crashlytics-build.properties
+
+# ===== IDE / editor =====
+.idea/
+.vscode/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+
+# ===== macOS =====
+.DS_Store
+
+# ===== Blender backups =====
+*.blend1
+*.blend2
+
+# ===== Pipeline: raw geodata downloads (big; re-downloadable, never commit) =====
+pipeline/cache/
+pipeline/downloads/
+*.osm
+*.osm.pbf
+*.tif
+*.laz

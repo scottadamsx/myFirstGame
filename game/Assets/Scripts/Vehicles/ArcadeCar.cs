@@ -37,11 +37,17 @@ public class ArcadeCar : MonoBehaviour
     public bool Grounded =>
         Physics.Raycast(transform.position + Vector3.up * 0.3f, Vector3.down, 0.85f);
 
+    float dbgTimer;
+
     void FixedUpdate()
     {
         if (!playerControlled) return;
         var kb = Keyboard.current;
-        if (kb == null) return;
+        if (kb == null)
+        {
+            Debug.Log("DRIVE-DBG: Keyboard.current is NULL while driving");
+            return;
+        }
 
         float throttle = (kb.wKey.isPressed || kb.upArrowKey.isPressed ? 1 : 0)
                        - (kb.sKey.isPressed || kb.downArrowKey.isPressed ? 1 : 0);
@@ -49,7 +55,17 @@ public class ArcadeCar : MonoBehaviour
                     - (kb.aKey.isPressed || kb.leftArrowKey.isPressed ? 1 : 0);
         bool handbrake = kb.spaceKey.isPressed;
 
-        if (!Grounded) return;
+        bool grounded = Grounded;
+        dbgTimer += Time.fixedDeltaTime;
+        if (dbgTimer > 1.5f)
+        {
+            dbgTimer = 0;
+            Debug.Log($"DRIVE-DBG state: throttle={throttle} steer={steer} grounded={grounded} " +
+                      $"kinematic={rb.isKinematic} enabled={enabled} speed={rb.linearVelocity.magnitude:F1} " +
+                      $"pos={transform.position} timeScale={Time.timeScale}");
+        }
+
+        if (!grounded) return;
 
         Vector3 vel = rb.linearVelocity;
         Vector3 flatVel = new Vector3(vel.x, 0, vel.z);

@@ -116,11 +116,17 @@ public class VehicleManager : MonoBehaviour
             if (near != null)
             {
                 GameHUD.SetPrompt("[E]  Enter car");
-                if (kb.eKey.wasPressedThisFrame) EnterCar(near);
+                if (kb.eKey.wasPressedThisFrame)
+                {
+                    Debug.Log($"DRIVE-DBG: EnterCar({near.name}) at {near.transform.position}");
+                    EnterCar(near);
+                }
             }
-            else if (kb.eKey.wasPressedThisFrame && NearestCar(gm.Player.transform.position, 25f) != null)
+            else if (kb.eKey.wasPressedThisFrame)
             {
-                GameHUD.Toast("Get closer to the car, b'y.");
+                Debug.Log($"DRIVE-DBG: E pressed on foot, nearest car {NearestCarDistance():F1} m away (range {EnterRange})");
+                if (NearestCar(gm.Player.transform.position, 25f) != null)
+                    GameHUD.Toast("Get closer to the car, b'y.");
             }
         }
         else if (kb.eKey.wasPressedThisFrame)

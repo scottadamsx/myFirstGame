@@ -94,6 +94,7 @@ public class VehicleManager : MonoBehaviour
         rb.isKinematic = false;
 
         DrivenCar = car;
+        car.enabled = true;          // traffic cars ship with physics disabled
         car.playerControlled = true;
 
         camOriginalParent = cam.parent;

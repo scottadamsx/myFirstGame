@@ -115,6 +115,23 @@ public class QuestSystem : MonoBehaviour
         return null;
     }
 
+    /// Names + positions of NPCs for HUD name tags.
+    public System.Collections.Generic.IEnumerable<(string, Vector3)> NpcLabels()
+    {
+        foreach (var n in npcs)
+            if (n.go != null) yield return (n.displayName, n.go.transform.position);
+    }
+
+    /// True when the player is close enough to the current quest target to talk.
+    public bool TargetInRange()
+    {
+        var t = TargetNpc();
+        if (t?.go == null || gm.Player == null) return false;
+        return Vector3.Distance(gm.Player.transform.position, t.go.transform.position) < TalkRange + 1.5f;
+    }
+
+    public bool InDialogue => dialogueLine >= 0;
+
     public string ObjectiveText()
     {
         if (CurrentStep >= steps.Count) return "Free roam — you own the town now.";

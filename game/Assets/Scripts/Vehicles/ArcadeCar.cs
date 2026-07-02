@@ -119,6 +119,8 @@ public class ArcadeCar : MonoBehaviour
         var go = BuildVisual(color, "Car");
         go.transform.SetPositionAndRotation(pos, rot);
         var car = go.AddComponent<ArcadeCar>();   // adds Rigidbody via RequireComponent
+        // kinematic until entered so parked cars don't roll down the hills
+        car.GetComponent<Rigidbody>().isKinematic = true;
         return car;
     }
 }

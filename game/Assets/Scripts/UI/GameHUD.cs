@@ -4,8 +4,10 @@ using UnityEngine;
 public class GameHUD : MonoBehaviour
 {
     static string prompt;
+    static int promptFrame = -10;   // OnGUI runs multiple passes per frame; never clear mid-frame
     static string toast;
     static float toastUntil;
+    bool showHelp = true;
 
     GameManager gm;
     Camera minimapCam;
@@ -13,7 +15,11 @@ public class GameHUD : MonoBehaviour
     GUIStyle label, big, dialogue;
     float hintUntil;
 
-    public static void SetPrompt(string text) => prompt = text;
+    public static void SetPrompt(string text)
+    {
+        prompt = text;
+        promptFrame = Time.frameCount;
+    }
 
     public static void Toast(string text)
     {
@@ -42,6 +48,10 @@ public class GameHUD : MonoBehaviour
         Vector3 p = gm.PlayerPosition();
         minimapCam.transform.position = p + Vector3.up * 900f;
         minimapCam.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+
+        var kb = UnityEngine.InputSystem.Keyboard.current;
+        if (kb != null && kb.hKey.wasPressedThisFrame) showHelp = !showHelp;
+        if (Time.time > hintUntil && hintUntil > 0) { showHelp = false; hintUntil = 0; }
     }
 
     void OnGUI()
@@ -83,12 +93,25 @@ public class GameHUD : MonoBehaviour
             GUI.Label(new Rect(r.x + r.width / 2 - 6, r.y + r.height / 2 - 10, 20, 20), "▲", label);
         }
 
-        // interaction prompt (bottom-center)
-        if (!string.IsNullOrEmpty(prompt))
+        // interaction prompt (bottom-center) — shown while someone re-sets it each frame
+        if (!string.IsNullOrEmpty(prompt) && Time.frameCount - promptFrame <= 2)
         {
-            GUI.Box(new Rect(w / 2 - 190, h - 88, 380, 36), "");
-            GUI.Label(new Rect(w / 2 - 190, h - 84, 380, 30), prompt, big);
-            prompt = null;   // must be re-set every frame by whoever owns it
+            GUI.Box(new Rect(w / 2 - 220, h - 92, 440, 40), "");
+            GUI.Label(new Rect(w / 2 - 220, h - 87, 440, 32), prompt, big);
+        }
+
+        // name tags over nearby quest NPCs
+        var qs = gm.GetComponent<QuestSystem>();
+        var cam = Camera.main;
+        if (qs != null && cam != null)
+        {
+            foreach (var (npcName, pos) in qs.NpcLabels())
+            {
+                Vector3 sp = cam.WorldToScreenPoint(pos + Vector3.up * 2.4f);
+                if (sp.z < 0 || sp.z > 40f) continue;
+                GUI.Label(new Rect(sp.x - 80, h - sp.y - 12, 160, 24), $"<b>{npcName}</b>",
+                    new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, richText = true });
+            }
         }
 
         // toast (upper-center)
@@ -106,12 +129,16 @@ public class GameHUD : MonoBehaviour
             GUI.Label(new Rect(r.x + r.width - 130, r.y + r.height + 4, 130, 24), "[E]  continue", label);
         }
 
-        // starter hints
-        if (Time.time < hintUntil)
+        // controls help (H toggles; auto-shows for the first while)
+        if (showHelp)
         {
-            GUI.Box(new Rect(16, h - 152, 330, 136), "");
-            GUI.Label(new Rect(28, h - 144, 310, 124),
-                "WASD move   ·   Mouse look\nShift sprint   ·   Space jump\nE  enter car / talk\nF5 save   ·   F9 load\nEsc frees the mouse", label);
+            GUI.Box(new Rect(16, h - 190, 350, 174), "");
+            GUI.Label(new Rect(28, h - 182, 330, 162),
+                "<b>CONTROLS</b>\nWASD move   ·   Mouse look\nShift sprint   ·   Space jump\nE  talk / enter & exit cars\nSpace  handbrake (driving)\nF5 save   ·   F9 load\nEsc frees the mouse   ·   H hides this", label);
+        }
+        else
+        {
+            GUI.Label(new Rect(20, h - 30, 200, 22), "H — help", label);
         }
     }
 }

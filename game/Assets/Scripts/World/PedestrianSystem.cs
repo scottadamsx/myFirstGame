@@ -30,8 +30,23 @@ public class PedestrianSystem : MonoBehaviour
             if (r.PointCount >= 3) walkable.Add(r);
     }
 
+    static readonly string[] Barks =
+    {
+        "Whaddya at, b'y?",
+        "Some fog on 'er today, wha?",
+        "Where ya to?",
+        "Stay where you're to till I comes where you're at.",
+        "Best kind, best kind.",
+        "She's blowin' a gale up on the hill.",
+        "Go on with ya!",
+        "Any mummers 'lowed in?",
+        "I hears George Street's some busy tonight.",
+        "Mind the one-ways downtown, they'll drive ya cracked.",
+    };
+
     void Update()
     {
+        ChatCheck();
         if (Time.time < nextThink || walkable.Count == 0) return;
         nextThink = Time.time + 0.6f;
         Vector3 p = gm.PlayerPosition();
@@ -47,6 +62,32 @@ public class PedestrianSystem : MonoBehaviour
         }
         if (active.Count < MaxPeds)
             TrySpawn(p);
+    }
+
+    void ChatCheck()
+    {
+        // on foot, not mid-quest-conversation, and no quest NPC nearby (they take priority)
+        if (gm.Player == null || !gm.Player.gameObject.activeSelf) return;
+        var quests = gm.GetComponent<QuestSystem>();
+        if (quests != null && (quests.InDialogue || quests.TargetInRange())) return;
+
+        Pedestrian nearest = null;
+        float best = 2.8f;
+        foreach (var ped in active)
+        {
+            if (ped == null) continue;
+            float d = Vector3.Distance(gm.Player.transform.position, ped.transform.position);
+            if (d < best) { best = d; nearest = ped; }
+        }
+        if (nearest == null) return;
+
+        GameHUD.SetPrompt("[E]  Chat");
+        var kb = UnityEngine.InputSystem.Keyboard.current;
+        if (kb != null && kb.eKey.wasPressedThisFrame)
+        {
+            GameHUD.Toast($"“{Barks[rng.Next(Barks.Length)]}”");
+            nearest.FacePlayer(gm.Player.transform.position);
+        }
     }
 
     void TrySpawn(Vector3 playerPos)
@@ -148,6 +189,14 @@ public class Pedestrian : MonoBehaviour
         Vector3 flat = new Vector3(to.x, 0, to.z);
         if (flat.sqrMagnitude > 0.01f)
             transform.rotation = Quaternion.LookRotation(flat);
+    }
+
+    public void FacePlayer(Vector3 playerPos)
+    {
+        Vector3 to = playerPos - transform.position;
+        to.y = 0;
+        if (to.sqrMagnitude > 0.01f)
+            transform.rotation = Quaternion.LookRotation(to);
     }
 
     void OnTriggerEnter(Collider other)

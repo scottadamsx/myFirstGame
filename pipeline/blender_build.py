@@ -183,20 +183,25 @@ def build_ribbons(items, z_off, sidewalk_side=0):
     return verts, quads, vert_uvs[quads.ravel()]
 
 
+# SPLAT_ROADS: roads are painted into the terrain texture (see prep splatmap);
+# no ribbon meshes = one continuous driving surface, zero seams. The ribbon
+# code below is kept for reference / non-splat builds.
+SPLAT_ROADS = True
+
 roads = [r for r in VEC["roads"] if r["kind"] == "road"]
 paths = [r for r in VEC["roads"] if r["kind"] == "path"]
-rv = build_ribbons(roads, 0.18)
+rv = None if SPLAT_ROADS else build_ribbons(roads, 0.18)
 if rv:
     m = make_mesh_fast("Roads", rv[0], quads_np=rv[1], uvs=rv[2])
     m.materials.append(flat_material("Asphalt", (0.055, 0.055, 0.06), rough=0.95))
     new_object("Roads", m)
-pv = build_ribbons(paths, 0.14)
+pv = None if SPLAT_ROADS else build_ribbons(paths, 0.14)
 if pv:
     m = make_mesh_fast("Paths", pv[0], quads_np=pv[1], uvs=pv[2])
     m.materials.append(flat_material("Path", (0.34, 0.31, 0.27), rough=1.0))
     new_object("Paths", m)
 # junction discs cover the seams where road ribbons overlap
-juncs = VEC.get("junctions", [])
+juncs = [] if SPLAT_ROADS else VEC.get("junctions", [])
 if juncs:
     jverts, jtris = [], []
     base = 0
@@ -227,8 +232,8 @@ if juncs:
     new_object("RoadsJunctions", m)
 print(f"junctions: {len(juncs)} discs", flush=True)
 
-walkable = [r for r in roads if r["width"] >= 6]
-sw_parts = [build_ribbons(walkable, 0.24, sidewalk_side=s) for s in (1, -1)]
+walkable = [] if SPLAT_ROADS else [r for r in roads if r["width"] >= 6]
+sw_parts = [build_ribbons(walkable, 0.24, sidewalk_side=s) for s in (1, -1)] if walkable else []
 sw_parts = [p for p in sw_parts if p]
 if sw_parts:
     sverts = np.concatenate([p[0] for p in sw_parts])

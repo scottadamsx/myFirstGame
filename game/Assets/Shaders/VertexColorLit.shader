@@ -9,6 +9,9 @@ Shader "StJohns/VertexColorLit"
         // uv.y counts storeys, uv.x < 0 marks roof planes (flat vertex color)
         _FacadeMode("Facade Mode", Float) = 0
         _WindWave("Wind Wave", Float) = 0
+        // roads painted into the terrain: world-space projected splatmap
+        _RoadMap("Road Splatmap", 2D) = "black" {}
+        _RoadUV("Road UV Transform", Vector) = (0, 0, 0, 0)
     }
     SubShader
     {
@@ -48,12 +51,15 @@ Shader "StJohns/VertexColorLit"
 
             TEXTURE2D(_BaseMap);
             SAMPLER(sampler_BaseMap);
+            TEXTURE2D(_RoadMap);
+            SAMPLER(sampler_RoadMap);
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseColor;
                 float4 _BaseMap_ST;
                 float _FacadeMode;
                 float _WindWave;
+                float4 _RoadUV;   // u = wp.x*x + z ; v = wp.z*y + w
             CBUFFER_END
 
             Varyings vert(Attributes IN)
@@ -95,13 +101,28 @@ Shader "StJohns/VertexColorLit"
                 else
                 {
                     detail = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv).rgb;
+                    float roadA = 0;
+                    float3 roadCol = 0;
+                    if (abs(_RoadUV.x) > 1e-8)
+                    {
+                        float2 ruv = float2(IN.positionWS.x * _RoadUV.x + _RoadUV.z,
+                                            IN.positionWS.z * _RoadUV.y + _RoadUV.w);
+                        if (all(ruv >= 0) && all(ruv <= 1))
+                        {
+                            float4 road = SAMPLE_TEXTURE2D(_RoadMap, sampler_RoadMap, ruv);
+                            roadA = road.a;
+                            roadCol = road.rgb;
+                        }
+                    }
                     if (_WindWave > 0.5)
                     {
-                        // wind gusts sweeping across the grass
+                        // wind gusts sweeping across the grass (not the pavement)
                         float w = sin(IN.positionWS.x * 0.11 + IN.positionWS.z * 0.07 + _Time.y * 1.4)
                                 + sin(IN.positionWS.x * 0.031 - IN.positionWS.z * 0.043 + _Time.y * 0.7);
-                        detail *= 1.0 + 0.05 * w;
+                        detail *= 1.0 + 0.05 * w * (1.0 - roadA);
                     }
+                    // roads are painted INTO the ground — override grass color
+                    detail = lerp(detail * IN.color.rgb, roadCol, roadA) / max(IN.color.rgb, 0.0001);
                 }
                 float3 c = detail * IN.color.rgb * _BaseColor.rgb * lighting;
                 c = MixFog(c, IN.fogCoord);

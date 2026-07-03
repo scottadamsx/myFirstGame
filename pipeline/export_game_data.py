@@ -100,7 +100,14 @@ for lm in TARGETS:
     landmarks.append({"name": lm, "x": round(float(x), 1), "y": round(float(y), 1), "z": round(float(z), 1)})
     print(f"  landmark {lm}: {src}, snapped to road at ({x:.0f}, {y:.0f}, z={z:.1f})")
 
-data = {"roads": roads, "landmarks": landmarks}
+data = {
+    "roads": roads,
+    "landmarks": landmarks,
+    "bounds": {
+        "x_min": X_MIN, "y_min": Y_MIN,
+        "span_x": round((NX - 1) * STEP, 2), "span_y": round((NY - 1) * STEP, 2),
+    },
+}
 dest = DEST / "stjohns_game_data.json"
 dest.write_text(json.dumps(data))
 print(f"wrote {dest} ({dest.stat().st_size / 1e6:.1f} MB), {len(roads)} roads, {len(landmarks)} landmarks")

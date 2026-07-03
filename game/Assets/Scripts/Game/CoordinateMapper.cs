@@ -7,6 +7,8 @@ using UnityEngine;
 public class CoordinateMapper
 {
     float sx = -1f, sz = -1f;
+    public float Sx => sx;
+    public float Sz => sz;
     public bool Calibrated { get; private set; }
 
     /// Blender (x east, y north, z up) -> Unity world.

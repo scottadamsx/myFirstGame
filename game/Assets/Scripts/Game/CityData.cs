@@ -20,10 +20,17 @@ public class LandmarkData
 }
 
 [Serializable]
+public class MapBounds
+{
+    public float x_min, y_min, span_x, span_y;
+}
+
+[Serializable]
 public class CityData
 {
     public List<RoadData> roads;
     public List<LandmarkData> landmarks;
+    public MapBounds bounds;
 
     public static CityData Load()
     {

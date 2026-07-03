@@ -29,6 +29,18 @@ public class VisualUpgrade : MonoBehaviour
         terrainMat.SetTextureScale("_BaseMap", new Vector2(250f, 250f));
         terrainMat.SetFloat("_WindWave", 1f);
 
+        // roads painted into the terrain (splatmap projected in world space)
+        var roadMap = Resources.Load<Texture2D>("City/roadsplat");
+        var gmi = GameManager.Instance;
+        if (roadMap != null && gmi != null && gmi.City != null && gmi.City.bounds != null && gmi.City.bounds.span_x > 1f)
+        {
+            var b = gmi.City.bounds;
+            terrainMat.SetTexture("_RoadMap", roadMap);
+            terrainMat.SetVector("_RoadUV", new Vector4(
+                gmi.Mapper.Sx / b.span_x, gmi.Mapper.Sz / b.span_y,
+                -b.x_min / b.span_x, -b.y_min / b.span_y));
+        }
+
         var roadMat = new Material(lit);
         roadMat.SetTexture("_BaseMap", asphalt);
         roadMat.SetTextureScale("_BaseMap", new Vector2(300f, 300f));

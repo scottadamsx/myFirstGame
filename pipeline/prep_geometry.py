@@ -467,6 +467,71 @@ for w in ways.values():
 landcover = np.asarray(img, dtype=np.uint8)  # row 0 = y_min (south), matches heightmap
 np.save(OUT / f"{NAME}_landcover.npy", landcover)
 
+# ---------------- road splatmap: roads PAINTED into the terrain texture --------
+# One smooth terrain is the only driving surface; roads are pixels, not meshes.
+SPLAT_W = 4096
+span_x = x_max - x_min
+span_y = y_max - y_min
+SPLAT_H = int(SPLAT_W * span_y / span_x)
+sp = Image.new("RGBA", (SPLAT_W, SPLAT_H), (0, 0, 0, 0))
+sd = ImageDraw.Draw(sp)
+PXX = SPLAT_W / span_x
+PXY = SPLAT_H / span_y
+
+
+def spx(p):
+    return (p[0] - x_min) * PXX, (p[1] - y_min) * PXY
+
+
+ASPHALT = (62, 62, 66, 255)
+CONCRETE = (168, 166, 160, 255)
+PATHCOL = (152, 146, 138, 255)
+LINE = (205, 185, 95, 255)
+
+for r in roads:                                    # footpaths first (underneath)
+    if r["kind"] != "path":
+        continue
+    w = max(1, int(r["width"] * PXX))
+    for a, b in zip(r["pts"], r["pts"][1:]):
+        sd.line([*spx(a), *spx(b)], fill=PATHCOL, width=w)
+
+for r in roads:                                    # sidewalk band = wider concrete under the asphalt
+    if r["kind"] != "road" or r["width"] < 6:
+        continue
+    w = max(2, int((r["width"] + 3.6) * PXX))
+    for a, b in zip(r["pts"], r["pts"][1:]):
+        sd.line([*spx(a), *spx(b)], fill=CONCRETE, width=w)
+
+for r in roads:                                    # asphalt
+    if r["kind"] != "road":
+        continue
+    w = max(2, int(r["width"] * PXX))
+    for a, b in zip(r["pts"], r["pts"][1:]):
+        sd.line([*spx(a), *spx(b)], fill=ASPHALT, width=w)
+
+for j in junctions:                                # junction pads
+    px, py_ = spx((j["x"], j["y"]))
+    pr = j["r"] * PXX
+    sd.ellipse([px - pr, py_ - pr, px + pr, py_ + pr], fill=ASPHALT)
+
+for r in roads:                                    # dashed center lines (roads wide enough)
+    if r["kind"] != "road" or r["width"] < 6.5:
+        continue
+    pts = r["pts"]
+    for i, (a, b) in enumerate(zip(pts, pts[1:])):
+        if i % 2 == 0:                             # 8m dash, 8m gap (points are 8m apart)
+            sd.line([*spx(a), *spx(b)], fill=LINE, width=1)
+
+# feather the paint edges so roads blend into grass
+rgb, alpha = sp.convert("RGB"), sp.getchannel("A")
+alpha = alpha.filter(ImageFilter.GaussianBlur(1.2))
+sp = Image.merge("RGBA", (*rgb.split(), alpha))
+sp = sp.transpose(Image.FLIP_TOP_BOTTOM)           # Unity v=0 = south
+SPLAT_DEST = HERE.parent / "game" / "Assets" / "Resources" / "City"
+SPLAT_DEST.mkdir(parents=True, exist_ok=True)
+sp.save(SPLAT_DEST / "roadsplat.png")
+print(f"road splatmap {SPLAT_W}x{SPLAT_H} ({SPLAT_W / span_x:.2f} px/m)")
+
 # ---------------- write vectors + meta -----------------------------------------
 (OUT / f"{NAME}_vectors.json").write_text(json.dumps(
     {"roads": roads, "buildings": buildings, "water": water, "junctions": junctions}))

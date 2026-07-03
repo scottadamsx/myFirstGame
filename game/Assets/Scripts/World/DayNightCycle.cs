@@ -53,7 +53,8 @@ public class DayNightCycle : MonoBehaviour
         {
             sky.SetFloat("_Exposure", Mathf.Lerp(0.08f, 1.1f, dayness));
             if (sky.HasProperty("_Tint"))
-                sky.SetColor("_Tint", Color.Lerp(new Color(0.35f, 0.42f, 0.6f), Color.white, dayness));
+                sky.SetColor("_Tint", Color.Lerp(new Color(0.35f, 0.42f, 0.6f),
+                                                 new Color(0.92f, 0.98f, 1.12f), dayness));   // lean blue by day
         }
     }
 

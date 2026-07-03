@@ -24,6 +24,7 @@ public class VisualUpgrade : MonoBehaviour
 
         var terrainMat = new Material(vcShader);
         terrainMat.SetTexture("_BaseMap", grass);
+        terrainMat.SetFloat("_WindWave", 1f);
 
         var roadMat = new Material(lit);
         roadMat.SetTexture("_BaseMap", asphalt);

@@ -92,8 +92,9 @@ print("wrote", DEST / "facade.png")
 # ---------------- grass ----------------
 grass_photo = DL / "grass_ph.jpg"
 if grass_photo.exists():
-    # Poly Haven aerial_grass_rock, neutralized so landcover vertex colors tint it
-    grass = photo(grass_photo, S, mean=212, gray=True)
+    # Poly Haven aerial_grass_rock — mostly neutralized (landcover tints it)
+    # but keeping 35% of the real hue variation so it reads organic
+    grass = photo(grass_photo, S, mean=212, gray=True) * 0.65 + photo(grass_photo, S, mean=212) * 0.35
 else:
     g = smooth_noise(S, 24, 200, 236)
     g += smooth_noise(S, 96, -10, 10)

@@ -270,6 +270,34 @@ for w in ways.values():
         continue
     add_building(way_pts(w), tags, w["id"])
 
+# ---- Microsoft ML footprints fill the gaps OSM volunteers haven't traced
+msft_path = DL / f"{NAME}_msft.json"
+if msft_path.exists():
+    rings = json.loads(msft_path.read_text())
+    CELL = 14.0
+    occupied = set()
+    for bld in buildings:
+        for x, y in bld["poly"]:
+            occupied.add((int(x // CELL), int(y // CELL)))
+    added = 0
+    for k, ring in enumerate(rings):
+        pts = [to_local(lat, lon) for lon, lat in ring]   # msft rings are [lon, lat]
+        if len(pts) >= 2 and pts[0] == pts[-1]:
+            pts = pts[:-1]
+        if len(pts) < 3:
+            continue
+        cx = sum(p[0] for p in pts) / len(pts)
+        cy = sum(p[1] for p in pts) / len(pts)
+        cell = (int(cx // CELL), int(cy // CELL))
+        if any((cell[0] + dx, cell[1] + dy) in occupied
+               for dx in (-1, 0, 1) for dy in (-1, 0, 1)):
+            continue                                       # OSM already has this one
+        add_building(pts, {}, f"msft{k}")
+        for x, y in pts:
+            occupied.add((int(x // CELL), int(y // CELL)))
+        added += 1
+    print(f"msft footprints merged: {added} of {len(rings)}")
+
 # ---- water polygons (lakes/ponds; the sea is handled as a plane in Blender)
 water = []
 for w in ways.values():

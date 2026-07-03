@@ -8,6 +8,7 @@ Shader "StJohns/VertexColorLit"
         // 1 = facade mode: texture holds [ground-floor | upper-floor] cells,
         // uv.y counts storeys, uv.x < 0 marks roof planes (flat vertex color)
         _FacadeMode("Facade Mode", Float) = 0
+        _WindWave("Wind Wave", Float) = 0
     }
     SubShader
     {
@@ -52,6 +53,7 @@ Shader "StJohns/VertexColorLit"
                 float4 _BaseColor;
                 float4 _BaseMap_ST;
                 float _FacadeMode;
+                float _WindWave;
             CBUFFER_END
 
             Varyings vert(Attributes IN)
@@ -91,6 +93,13 @@ Shader "StJohns/VertexColorLit"
                 else
                 {
                     detail = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv).rgb;
+                    if (_WindWave > 0.5)
+                    {
+                        // wind gusts sweeping across the grass
+                        float w = sin(IN.positionWS.x * 0.11 + IN.positionWS.z * 0.07 + _Time.y * 1.4)
+                                + sin(IN.positionWS.x * 0.031 - IN.positionWS.z * 0.043 + _Time.y * 0.7);
+                        detail *= 1.0 + 0.05 * w;
+                    }
                 }
                 float3 c = detail * IN.color.rgb * _BaseColor.rgb * lighting;
                 c = MixFog(c, IN.fogCoord);

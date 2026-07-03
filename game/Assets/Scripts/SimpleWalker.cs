@@ -22,6 +22,15 @@ public class SimpleWalker : MonoBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        // snap the spawn to actual ground — the saved scene's position can be
+        // stale after a city rebuild (inside geometry = fall through the world)
+        Vector3 snapped = CoordinateMapper.DropToGround(transform.position + Vector3.up * 80f, 80f);
+        if (snapped != transform.position + Vector3.up * 80f)
+        {
+            controller.enabled = false;
+            transform.position = snapped + Vector3.up * 1.2f;
+            controller.enabled = true;
+        }
         spawnPosition = transform.position;
         yaw = transform.eulerAngles.y;
         Cursor.lockState = CursorLockMode.Locked;

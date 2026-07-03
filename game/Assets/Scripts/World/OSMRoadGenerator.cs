@@ -3,8 +3,13 @@ using System.Collections.Generic;
 
 public class OSMRoadGenerator : MonoBehaviour
 {
+    /// Experimental: renders duplicate runtime roads over the baked FBX ones.
+    /// Off until it's proven — when it replaced the FBX roads and silently
+    /// failed, the whole city lost its roads and their colliders.
+    public const bool EnableExperiment = false;
+
     public Material roadMaterial;
-    
+
     void Start()
     {
         // Road generation is a cosmetic pass layered on top of the FBX-derived

@@ -54,31 +54,26 @@ public class VisualUpgrade : MonoBehaviour
         foreach (var mr in city.GetComponentsInChildren<MeshRenderer>())
         {
             string n = mr.gameObject.name;
-            if (n.StartsWith("Buildings")) 
-            {
-                mr.sharedMaterial = buildingsMat;
-                if (mr.transform.localPosition.y < 0.4f) mr.transform.localPosition += Vector3.up * 0.4f;
-            }
+            // Baked FBX roads/paths/sidewalks are the SOURCE OF TRUTH: always
+            // visible, always collidable. (A runtime generator once replaced
+            // them; when it silently failed the city had no roads and no road
+            // colliders. Never again — see OSMRoadGenerator.EnableExperiment.)
+            mr.gameObject.SetActive(true);
+            if (n.StartsWith("Buildings")) mr.sharedMaterial = buildingsMat;
             else if (n.StartsWith("Terrain")) mr.sharedMaterial = terrainMat;
-            else if (n.StartsWith("Roads")) 
-            {
-                // Disable the old FBX roads
-                mr.gameObject.SetActive(false);
-            }
-            else if (n.StartsWith("Paths") || n.StartsWith("Sidewalks")) 
-            {
-                // Disable paths for now, or keep them
-                mr.gameObject.SetActive(false);
-            }
+            else if (n.StartsWith("Roads")) mr.sharedMaterial = roadMat;        // incl. RoadsJunctions
+            else if (n.StartsWith("Paths")) mr.sharedMaterial = pathMat;
+            else if (n.StartsWith("Sidewalks")) mr.sharedMaterial = sidewalkMat;
             else if (n.StartsWith("Sea") || n.StartsWith("Lakes")) mr.sharedMaterial = waterMat;
-            
+
             // pipeline additions arrive after the scene was built — heal colliders
-            if (mr.GetComponent<MeshCollider>() == null && !n.StartsWith("Sea") && !n.StartsWith("Lakes") && mr.gameObject.activeSelf)
+            if (mr.GetComponent<MeshCollider>() == null && !n.StartsWith("Sea") && !n.StartsWith("Lakes"))
                 mr.gameObject.AddComponent<MeshCollider>();
         }
 
-        // Attach the new OSM Road Generator to build perfectly smooth roads from actual server data!
-        if (gameObject.GetComponent<OSMRoadGenerator>() == null)
+        // Runtime road generator: experimental overlay only — it must never be
+        // the sole source of roads (see comment above). Flip the flag to test it.
+        if (OSMRoadGenerator.EnableExperiment && gameObject.GetComponent<OSMRoadGenerator>() == null)
         {
             var osm = gameObject.AddComponent<OSMRoadGenerator>();
             osm.roadMaterial = roadMat;

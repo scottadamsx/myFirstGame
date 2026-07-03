@@ -358,7 +358,7 @@ public class MissionManager : MonoBehaviour
         markerShownAt = Time.time;
     }
 
-    public void Succeed(Mission mission)
+    void Succeed(Mission mission)
     {
         mission.done = true;
         gm.Loonies += mission.reward;

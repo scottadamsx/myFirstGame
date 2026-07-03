@@ -12,8 +12,21 @@ from PIL import Image, ImageDraw, ImageFilter
 
 DEST = pathlib.Path(__file__).parent.parent / "game" / "Assets" / "Resources" / "City"
 DEST.mkdir(parents=True, exist_ok=True)
+DL = pathlib.Path(__file__).parent / "downloads"
 S = 512
 rng = np.random.default_rng(7)
+
+
+def photo(path, size=S, mean=None, gray=False):
+    """Load a CC0 photo texture; optionally neutralize to luminance so vertex
+    colors supply the hue, and normalize overall brightness."""
+    img = Image.open(path).convert("RGB").resize((size, size), Image.LANCZOS)
+    a = np.array(img, dtype=np.float32)
+    if gray:
+        a = np.repeat(a.mean(axis=2, keepdims=True), 3, axis=2)
+    if mean is not None:
+        a *= mean / max(a.mean(), 1.0)
+    return a
 
 
 def save(arr, name):
@@ -28,12 +41,17 @@ def smooth_noise(size, cell, lo, hi):
 
 
 # ---------------- facade: two 256px cells — ground floor (door) | upper (window)
-f = np.full((S, S, 3), 208, dtype=np.float32)
-# clapboard rows every ~15 cm (26 px), with a darker shadow line
-for y in range(0, S, 26):
-    f[y:y + 4, :] -= 16
-    f[y + 4:y + 6, :] += 6
-f += rng.normal(0, 3.5, (S, S, 3))
+siding_photo = DL / "siding_acg" / "WoodSiding001_1K-JPG_Color.jpg"
+if siding_photo.exists():
+    # real CC0 clapboard (ambientCG WoodSiding001), neutralized for paint tinting;
+    # blended toward flat paint so the weathering reads as texture, not decay
+    f = photo(siding_photo, S, mean=205, gray=True) * 0.4 + 205 * 0.6
+else:
+    f = np.full((S, S, 3), 208, dtype=np.float32)
+    for y in range(0, S, 26):
+        f[y:y + 4, :] -= 16
+        f[y + 4:y + 6, :] += 6
+    f += rng.normal(0, 3.5, (S, S, 3))
 img = Image.fromarray(np.clip(f, 0, 255).astype(np.uint8))
 
 
@@ -72,16 +90,25 @@ img.save(DEST / "facade.png")
 print("wrote", DEST / "facade.png")
 
 # ---------------- grass ----------------
-g = smooth_noise(S, 24, 200, 236)
-g += smooth_noise(S, 96, -10, 10)
-g += rng.normal(0, 5, (S, S))
-grass = np.stack([g * 0.97, g, g * 0.94], axis=-1)
+grass_photo = DL / "grass_ph.jpg"
+if grass_photo.exists():
+    # Poly Haven aerial_grass_rock, neutralized so landcover vertex colors tint it
+    grass = photo(grass_photo, S, mean=212, gray=True)
+else:
+    g = smooth_noise(S, 24, 200, 236)
+    g += smooth_noise(S, 96, -10, 10)
+    g += rng.normal(0, 5, (S, S))
+    grass = np.stack([g * 0.97, g, g * 0.94], axis=-1)
 save(grass, "grass.png")
 
 # ---------------- asphalt ----------------
-a = smooth_noise(S, 48, 58, 74)
-a += rng.normal(0, 6, (S, S))
-asphalt = np.stack([a, a, a * 1.04], axis=-1)
+asphalt_photo = DL / "asphalt_acg" / "Asphalt008_1K-JPG_Color.jpg"
+if asphalt_photo.exists():
+    asphalt = photo(asphalt_photo, S, mean=74)
+else:
+    a = smooth_noise(S, 48, 58, 74)
+    a += rng.normal(0, 6, (S, S))
+    asphalt = np.stack([a, a, a * 1.04], axis=-1)
 # dashed center line (texture x == across the road)
 for y0 in range(0, S, 84):
     asphalt[y0:y0 + 52, 248:264] = (172, 155, 96)

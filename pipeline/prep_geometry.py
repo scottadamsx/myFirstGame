@@ -330,6 +330,9 @@ def building_color(tags, bid):
 buildings = []
 
 
+SHOP_TYPES = {"commercial", "retail", "office", "supermarket", "kiosk", "hotel", "pub", "restaurant"}
+
+
 def add_building(pts, tags, bid):
     if len(pts) < 3:
         return
@@ -337,10 +340,13 @@ def add_building(pts, tags, bid):
         pts = pts[:-1]
     if len(pts) < 3 or abs(ring_area(pts)) < 4:
         return
+    shop = "shop" in tags or tags.get("amenity") in ("restaurant", "pub", "cafe", "bar", "bank") \
+        or tags.get("building") in SHOP_TYPES
     buildings.append({
         "poly": [[round(x, 2), round(y, 2)] for x, y in ccw(pts)],
         "height": round(building_height(tags, bid), 2),
         "color": building_color(tags, bid),
+        "shop": bool(shop),
     })
 
 

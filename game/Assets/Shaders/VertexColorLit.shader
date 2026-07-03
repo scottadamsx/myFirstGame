@@ -84,10 +84,12 @@ Shader "StJohns/VertexColorLit"
                     }
                     else
                     {
-                        float cellShift = IN.uv.y < 1.0 ? 0.0 : 0.5;   // ground floor gets the door
+                        // atlas: x = ground|upper, y = residential|commercial
+                        float xShift = IN.uv.y < 1.0 ? 0.0 : 0.5;      // ground floor gets door/storefront
+                        float yShift = IN.color.a < 0.7 ? 0.5 : 0.0;   // wall alpha flags commercial
                         float2 cuv = frac(IN.uv);
                         detail = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap,
-                                                  float2(cuv.x * 0.5 + cellShift, cuv.y)).rgb;
+                                                  float2(cuv.x * 0.5 + xShift, cuv.y * 0.5 + yShift)).rgb;
                     }
                 }
                 else

@@ -211,12 +211,14 @@ if juncs:
                                       base + 1 + (idx + 1) % SEGS]))
         base += SEGS + 1
     jv = np.concatenate(jverts)
-    # sample the asphalt away from the dashed center line (u around 0.75)
-    juv_pts = np.concatenate([np.column_stack([0.75 + 0.2 * np.cos(ang0), v0 / 12.0])
-                              for ang0, v0 in [(np.concatenate([[0], ang]),
-                                                np.concatenate([[c[1]], c[1] + np.sin(ang) * rr]))
-                                               for c, rr in zip([(j["x"], j["y"]) for j in juncs],
-                                                                [j["r"] for j in juncs])]])
+    # per-vertex UVs sampling plain asphalt away from the dashed center line
+    juv_parts = []
+    for j in juncs:
+        center_uv = np.array([[0.75, j["y"] / 12.0]])
+        ring_uv = np.column_stack([0.75 + 0.2 * np.cos(ang),
+                                   (j["y"] + np.sin(ang) * j["r"]) / 12.0])
+        juv_parts.append(np.vstack([center_uv, ring_uv]))
+    juv_pts = np.concatenate(juv_parts)
     jtris_all = np.concatenate(jtris)
     m = make_mesh_fast("RoadsJunctions", jv, tris_np=jtris_all, uvs=juv_pts[jtris_all.ravel()])
     m.materials.append(flat_material("Asphalt2", (0.055, 0.055, 0.06), rough=0.95))
@@ -259,7 +261,8 @@ for bld in VEC["buildings"]:
     top = vbase + n + np.arange(n)
     nxt = np.roll(np.arange(n), -1)
     bquads.append(np.stack([bot, bot[nxt], top[nxt], top], axis=1))
-    c = bld["color"] + [1.0]
+    # wall alpha < 0.7 flags a commercial facade (shader picks storefront cells)
+    c = bld["color"] + [0.35 if bld.get("shop") else 1.0]
     rc = [ch * 0.55 for ch in bld["color"]] + [1.0]
     quad_cols.extend([c] * (4 * n))
 

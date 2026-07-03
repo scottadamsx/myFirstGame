@@ -72,19 +72,43 @@ def window(d_, x0, y0, x1, y1):
     d2.rectangle([x0, my - 4, x1, my + 4], fill=(232, 230, 224))
 
 
+# 2x2 atlas, 256px cells. Unity v grows upward, PIL y grows downward:
+#   PIL rows 256..512 = Unity y 0..0.5  -> residential (ground | upper)
+#   PIL rows   0..256 = Unity y 0.5..1  -> commercial  (storefront | office)
 d = ImageDraw.Draw(img)
-# LEFT cell (u 0..0.5): ground floor — small window + front door reaching the bottom
-window(d, 28, 200, 120, 350)
-d = ImageDraw.Draw(img)
-d.rectangle([146, 236, 234, 511], fill=(238, 236, 230))                # door frame
-d.rectangle([156, 248, 224, 511], fill=(72, 52, 46))                   # door slab
-d.rectangle([166, 262, 214, 330], fill=(88, 66, 58))                   # top panel
-d.rectangle([166, 350, 214, 460], fill=(88, 66, 58))                   # bottom panel
-d.ellipse([206, 380, 218, 392], fill=(210, 190, 120))                  # knob
-d.rectangle([140, 224, 240, 240], fill=(180, 176, 168))                # lintel
 
-# RIGHT cell (u 0.5..1): upper storey — the classic window, centered
-window(d, 256 + 90, 96, 256 + 230, 300)
+# residential ground (PIL bottom-left): small window + front door to the sill
+oy = 256
+window(d, 16, oy + 96, 62, oy + 172)
+d = ImageDraw.Draw(img)
+d.rectangle([146, oy + 116, 190, oy + 255], fill=(238, 236, 230))      # door frame
+d.rectangle([151, oy + 122, 185, oy + 255], fill=(72, 52, 46))         # door slab
+d.rectangle([156, oy + 130, 180, oy + 164], fill=(88, 66, 58))         # top panel
+d.rectangle([156, oy + 174, 180, oy + 228], fill=(88, 66, 58))         # bottom panel
+d.ellipse([178, oy + 188, 184, oy + 194], fill=(210, 190, 120))        # knob
+d.rectangle([142, oy + 108, 194, oy + 116], fill=(180, 176, 168))      # lintel
+
+# residential upper (PIL bottom-right): the classic window
+window(d, 256 + 76, oy + 48, 256 + 180, oy + 190)
+
+# commercial ground (PIL top-left): sign band + display window + glass door
+d = ImageDraw.Draw(img)
+d.rectangle([4, 10, 252, 52], fill=(52, 48, 46))                       # sign band
+d.rectangle([10, 16, 246, 46], fill=(74, 68, 64))
+d.rectangle([12, 64, 152, 210], fill=(232, 230, 224))                  # display frame
+d.rectangle([20, 72, 144, 202], fill=(46, 54, 66))                     # display glass
+d.line([(24, 190), (140, 84)], fill=(120, 132, 146), width=9)
+d.rectangle([166, 64, 234, 255], fill=(232, 230, 224))                 # door frame
+d.rectangle([174, 72, 226, 232], fill=(50, 58, 70))                    # glass door
+d.rectangle([174, 232, 226, 255], fill=(150, 148, 144))                # kick plate
+d.rectangle([196, 140, 204, 168], fill=(200, 198, 190))                # handle
+
+# commercial upper (PIL top-right): wide office window with mullions
+d.rectangle([256 + 20, 60, 256 + 236, 190], fill=(232, 230, 224))
+d.rectangle([256 + 30, 70, 256 + 226, 180], fill=(48, 56, 68))
+for mx in (256 + 96, 256 + 160):
+    d.rectangle([mx - 4, 70, mx + 4, 180], fill=(232, 230, 224))
+d.line([(256 + 36, 170), (256 + 220, 82)], fill=(118, 130, 144), width=8)
 
 img.save(DEST / "facade.png")
 print("wrote", DEST / "facade.png")

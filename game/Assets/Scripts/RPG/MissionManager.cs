@@ -133,6 +133,170 @@ public class MissionManager : MonoBehaviour
             $"MISSION  Recover the shop signs — {signs.Count} left (follow the marker)";
     }
 
+    // ---- mission 4: combat wave, rewards the pistol ----------------------------
+    class RatsAtTheWharf : Mission
+    {
+        List<EnemyAI> wave;
+        public RatsAtTheWharf() { title = "Rats at the Wharf"; reward = 120; }
+
+        public override void Begin(MissionManager m)
+        {
+            GameHUD.Toast("Dave: \"Scrappers at me shed! Run 'em off — fists'll do it!\"");
+            wave = m.SpawnWave("Harbourfront", 4);
+        }
+
+        public override void Tick(MissionManager m)
+        {
+            wave.RemoveAll(e => e == null || e.Dead);
+            if (wave.Count == 0)
+            {
+                var pc = m.gm.Player != null ? m.gm.Player.GetComponent<PlayerCombat>() : null;
+                if (pc != null && !pc.pistolOwned)
+                {
+                    pc.pistolOwned = true;
+                    pc.ammo += 24;
+                    GameHUD.Toast("Dave: \"Found this in the shed. Take it — Q to draw.\"  (Pistol + 24 rounds)");
+                }
+                m.Succeed(this);
+                return;
+            }
+            m.ShowMarker(wave[0].transform.position);
+        }
+
+        public override string Objective(MissionManager m) =>
+            $"MISSION  Run off the scrappers — {wave.Count} left";
+    }
+
+    // ---- mission 5: car chase ----------------------------------------------------
+    class MountPearlRunner : Mission
+    {
+        ChaseCar target;
+        float catchTime;
+        float deadline;
+        public MountPearlRunner() { title = "The Mount Pearl Runner"; reward = 130; }
+
+        public override void Begin(MissionManager m)
+        {
+            target = ChaseCar.Spawn(m.gm, m.LandmarkPos("The Rooms"));
+            catchTime = 0;
+            deadline = Time.time + 240f;
+            GameHUD.Toast("Dave: \"That green cab's poaching our fares! Get a car and RUN HIM DOWN!\"");
+        }
+
+        public override void Tick(MissionManager m)
+        {
+            if (target == null) { m.Fail("Lost him in the fog."); return; }
+            if (Time.time > deadline)
+            {
+                Object.Destroy(target.gameObject);
+                m.Fail("He's gone back over the overpass. Next time.");
+                return;
+            }
+            m.ShowMarker(target.transform.position);
+            var vm = m.gm.GetComponent<VehicleManager>();
+            bool driving = vm != null && vm.DrivenCar != null;
+            float d = Vector3.Distance(m.gm.PlayerPosition(), target.transform.position);
+            if (driving && d < 9f) catchTime += Time.deltaTime;
+            else catchTime = Mathf.Max(0, catchTime - Time.deltaTime * 0.5f);
+            if (catchTime > 2.5f)
+            {
+                Object.Destroy(target.gameObject);
+                GameHUD.Toast("He pulls over! \"Alright, ALRIGHT — downtown's yours, b'y!\"");
+                m.Succeed(this);
+            }
+        }
+
+        public override string Objective(MissionManager m)
+        {
+            float d = target != null ? Vector3.Distance(m.gm.PlayerPosition(), target.transform.position) : 0;
+            return $"MISSION  Chase the green cab!  ({d:F0} m — stay close!)   ⏱ {Mathf.Max(0, deadline - Time.time):F0}s";
+        }
+    }
+
+    // ---- mission 6: move materials -----------------------------------------------
+    class LumberForLevi : Mission
+    {
+        readonly List<GameObject> piles = new List<GameObject>();
+        int carried;
+        public LumberForLevi() { title = "Lumber for Levi"; reward = 110; }
+
+        public override void Begin(MissionManager m)
+        {
+            GameHUD.Toast("Dave: \"Levi's rebuilding his stage. Three lumber piles around town — truck 'em to the Battery.\"");
+            carried = 0;
+            string[] spots = { "Quidi Vidi", "The Rooms", "George Street" };
+            foreach (var s in spots)
+            {
+                Vector3 p = CoordinateMapper.DropToGround(m.LandmarkPos(s) + new Vector3(5f, 30f, -4f), 30f) + Vector3.up * 0.5f;
+                var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                Object.Destroy(go.GetComponent<Collider>());
+                go.transform.position = p;
+                go.transform.localScale = new Vector3(1.6f, 0.9f, 0.9f);
+                var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                mat.SetColor("_BaseColor", new Color(0.55f, 0.38f, 0.2f));
+                go.GetComponent<MeshRenderer>().sharedMaterial = mat;
+                piles.Add(go);
+            }
+        }
+
+        public override void Tick(MissionManager m)
+        {
+            GameObject nearest = null;
+            float best = float.MaxValue;
+            foreach (var p in piles)
+            {
+                if (p == null) continue;
+                float d = Vector3.Distance(m.gm.PlayerPosition(), p.transform.position);
+                if (d < 7f) { Object.Destroy(p); carried++; GameHUD.Toast($"Lumber aboard ({carried} carried)."); }
+                else if (d < best) { best = d; nearest = p; }
+            }
+            piles.RemoveAll(p => p == null);
+
+            if (piles.Count == 0 && carried > 0)
+            {
+                Vector3 drop = m.LandmarkPos("The Battery");
+                m.ShowMarker(drop);
+                if (m.Near(drop, 12f))
+                {
+                    GameHUD.Toast("Levi: \"Best kind! Stage'll be up for the folk festival.\"");
+                    m.Succeed(this);
+                }
+            }
+            else if (nearest != null)
+            {
+                m.ShowMarker(nearest.transform.position);
+            }
+        }
+
+        public override string Objective(MissionManager m) =>
+            piles.Count > 0
+                ? $"MISSION  Collect lumber — {piles.Count} pile(s) left"
+                : $"MISSION  Deliver the lumber to the Battery  ({m.DistTo("The Battery"):F0} m)";
+    }
+
+    // ---- mission 7: finale wave ---------------------------------------------------
+    class NarrowsStandoff : Mission
+    {
+        List<EnemyAI> wave;
+        public NarrowsStandoff() { title = "The Narrows Standoff"; reward = 150; }
+
+        public override void Begin(MissionManager m)
+        {
+            GameHUD.Toast("Dave: \"The whole scrapper crew's at the Battery. End this, b'y.\"");
+            wave = m.SpawnWave("The Battery", 6);
+        }
+
+        public override void Tick(MissionManager m)
+        {
+            wave.RemoveAll(e => e == null || e.Dead);
+            if (wave.Count == 0) { m.Succeed(this); return; }
+            m.ShowMarker(wave[0].transform.position);
+        }
+
+        public override string Objective(MissionManager m) =>
+            $"MISSION  The Narrows Standoff — {wave.Count} scrappers left";
+    }
+
     // ---- engine ------------------------------------------------------------------
     public GameManager gm;
     readonly List<Mission> missions = new List<Mission>();
@@ -147,6 +311,10 @@ public class MissionManager : MonoBehaviour
         missions.Add(new GrowlerRun());
         missions.Add(new RegattaRacket());
         missions.Add(new GoneGullin());
+        missions.Add(new RatsAtTheWharf());
+        missions.Add(new MountPearlRunner());
+        missions.Add(new LumberForLevi());
+        missions.Add(new NarrowsStandoff());
 
         marker = GameObject.CreatePrimitive(PrimitiveType.Cube);
         Destroy(marker.GetComponent<Collider>());
@@ -166,6 +334,20 @@ public class MissionManager : MonoBehaviour
     }
 
     public float DistTo(string name) => Vector3.Distance(gm.PlayerPosition(), LandmarkPos(name));
+
+    public List<EnemyAI> SpawnWave(string landmark, int count)
+    {
+        var wave = new List<EnemyAI>();
+        Vector3 center = LandmarkPos(landmark);
+        for (int i = 0; i < count; i++)
+        {
+            float ang = i * Mathf.PI * 2f / count;
+            Vector3 p = center + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * (6f + i);
+            p = CoordinateMapper.DropToGround(p + Vector3.up * 40f, 40f);
+            wave.Add(EnemyAI.Spawn(p, i * 131 + 7));
+        }
+        return wave;
+    }
     public bool Near(Vector3 p, float range) => Vector3.Distance(gm.PlayerPosition(), p) < range;
 
     public void ShowMarker(Vector3 over)

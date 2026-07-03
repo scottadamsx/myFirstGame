@@ -8,11 +8,25 @@ public class PedestrianSystem : MonoBehaviour
     const float SpawnRadius = 420f;
     const float DespawnRadius = 620f;
 
+    static PedestrianSystem instance;
+
     GameManager gm;
     List<RoadData> walkable;
     readonly List<Pedestrian> active = new List<Pedestrian>();
     System.Random rng = new System.Random(13);
     float nextThink;
+
+    /// Civilians scatter from violence.
+    public static void PanicAt(Vector3 pos, float radius)
+    {
+        if (instance == null) return;
+        foreach (var ped in instance.active)
+        {
+            if (ped == null) continue;
+            if (Vector3.Distance(ped.transform.position, pos) < radius)
+                ped.Flee(pos);
+        }
+    }
 
     static readonly Color[] Coats =
     {
@@ -24,6 +38,7 @@ public class PedestrianSystem : MonoBehaviour
 
     void Start()
     {
+        instance = this;
         gm = GameManager.Instance;
         walkable = new List<RoadData>();
         foreach (var r in gm.City.roads)
@@ -117,6 +132,16 @@ public class Pedestrian : MonoBehaviour
     float speed;
     Vector3 target;
     bool flung;
+    float fleeUntil;
+    Vector3 fleeDir;
+
+    public void Flee(Vector3 from)
+    {
+        fleeUntil = Time.time + 11f;
+        fleeDir = (transform.position - from);
+        fleeDir.y = 0;
+        fleeDir = fleeDir.sqrMagnitude > 0.01f ? fleeDir.normalized : Vector3.forward;
+    }
 
     static readonly Color[] Skins =
     {
@@ -195,6 +220,12 @@ public class Pedestrian : MonoBehaviour
     void Update()
     {
         if (flung) return;
+        if (Time.time < fleeUntil)
+        {
+            transform.position += fleeDir * 4.4f * Time.deltaTime;
+            transform.rotation = Quaternion.LookRotation(fleeDir);
+            return;
+        }
         Vector3 to = target - transform.position;
         float step = speed * Time.deltaTime;
         if (to.magnitude <= step) { Advance(); return; }

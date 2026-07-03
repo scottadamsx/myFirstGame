@@ -121,6 +121,37 @@ public class GameHUD : MonoBehaviour
             GUI.Label(new Rect(28, 132, 600, 26), $"<b>{missionLine}</b>", label);
         }
 
+        // health bar + hurt flash + ammo
+        if (gm.Player != null)
+        {
+            var ph = gm.Player.GetComponent<Health>();
+            if (ph != null)
+            {
+                float y = missionLine != null ? 168f : 126f;
+                GUI.Box(new Rect(16, y, 264, 24), "");
+                var old = GUI.color;
+                GUI.color = new Color(0.75f, 0.15f, 0.15f, 0.9f);
+                GUI.DrawTexture(new Rect(20, y + 4, 256f * Mathf.Clamp01(ph.current / ph.max), 16), Texture2D.whiteTexture);
+                GUI.color = old;
+                GUI.Label(new Rect(24, y + 2, 240, 20), $"<b>{ph.current:F0}</b>", label);
+
+                if (ph.TimeSinceHit < 0.35f)
+                {
+                    GUI.color = new Color(0.8f, 0.05f, 0.05f, 0.35f * (1f - ph.TimeSinceHit / 0.35f));
+                    GUI.DrawTexture(new Rect(0, 0, w, h), Texture2D.whiteTexture);
+                    GUI.color = old;
+                }
+            }
+
+            var pc = gm.Player.GetComponent<PlayerCombat>();
+            if (pc != null && pc.pistolOwned)
+            {
+                GUI.Box(new Rect(w - 216, h - 152, 200, 28), "");
+                GUI.Label(new Rect(w - 208, h - 148, 190, 22),
+                    pc.pistolEquipped ? $"<b>PISTOL</b>   {pc.ammo} rds   (Q holsters)" : $"pistol holstered — Q   ({pc.ammo} rds)", label);
+            }
+        }
+
         // taxi job objective (second bar, under the car status line)
         var taxi = gm.GetComponent<TaxiSystem>();
         string taxiLine = taxi != null ? taxi.ObjectiveText() : null;

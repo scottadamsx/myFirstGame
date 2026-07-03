@@ -32,6 +32,19 @@ public class ArcadeCar : MonoBehaviour
         rb.centerOfMass = new Vector3(0, -0.45f, 0);
         rb.interpolation = RigidbodyInterpolation.Interpolate;
         rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;  // valid for kinematic parked cars too
+
+        // near-frictionless body: grip is faked in code, and real friction was
+        // pinning the car against ground/walls harder than the engine could push
+        var slippery = new PhysicsMaterial("CarBody")
+        {
+            dynamicFriction = 0.1f,
+            staticFriction = 0.1f,
+            frictionCombine = PhysicsMaterialCombine.Minimum,
+            bounciness = 0f,
+            bounceCombine = PhysicsMaterialCombine.Minimum,
+        };
+        var box = GetComponent<BoxCollider>();
+        if (box != null) box.sharedMaterial = slippery;
     }
 
     public bool Grounded =>
@@ -73,6 +86,10 @@ public class ArcadeCar : MonoBehaviour
 
         if (Mathf.Abs(forwardSpeed) < maxSpeed)
             rb.AddForce(transform.forward * throttle * accelForce);
+
+        // rolling resistance so a frictionless car still coasts to a stop
+        if (Mathf.Approximately(throttle, 0f))
+            rb.AddForce(-flatVel * rb.mass * 1.1f * Time.fixedDeltaTime, ForceMode.Impulse);
 
         // steering scales with speed so the car doesn't spin on the spot
         float steerScale = Mathf.Clamp01(Mathf.Abs(forwardSpeed) / 6f) * Mathf.Sign(forwardSpeed == 0 ? 1 : forwardSpeed);

@@ -83,7 +83,9 @@ public class VehicleManager : MonoBehaviour
             Vector3 dir = (b - a).normalized;
             if (dir == Vector3.zero) continue;
             Vector3 side = Vector3.Cross(Vector3.up, dir).normalized;
-            Vector3 pos = Vector3.Lerp(a, b, (float)rng.NextDouble()) + side * (r.width * 0.5f - 1.1f);
+            // park in-lane rather than at the curb — row houses sit right at the
+            // road edge downtown and edge-parked cars clipped into their colliders
+            Vector3 pos = Vector3.Lerp(a, b, (float)rng.NextDouble()) + side * (r.width * 0.25f);
             pos = CoordinateMapper.DropToGround(pos) + Vector3.up * 0.25f;
             var car = ArcadeCar.SpawnParked(pos, Quaternion.LookRotation(dir), ArcadeCar.Palette[rng.Next(ArcadeCar.Palette.Length)]);
             cars.Add(car);
@@ -142,6 +144,7 @@ public class VehicleManager : MonoBehaviour
         if (traffic != null) Destroy(traffic);
         var rb = car.GetComponent<Rigidbody>();
         rb.isKinematic = false;
+        rb.position += Vector3.up * 0.4f;   // pop up out of any wedged contact
 
         DrivenCar = car;
         car.enabled = true;          // traffic cars ship with physics disabled

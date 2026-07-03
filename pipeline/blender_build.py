@@ -300,8 +300,9 @@ print(f"buildings: {len(VEC['buildings'])} ({gable_count} gabled)", flush=True)
 water_mat = flat_material("Water", (0.028, 0.10, 0.16), rough=0.12)
 span_x = xs[-1] - xs[0]
 span_y = ys[-1] - ys[0]
-# ocean cells are exactly 0 in the DEM; 0.9 m clears them without flooding wharves
-SEA_Z = 0.9
+# ocean cells are exactly 0 in the DEM; land is lifted to >=0.6 in prep,
+# so 0.45 clears the ocean without drowning the waterfront
+SEA_Z = 0.45
 sea = make_mesh_fast("Sea", np.array([
     [xs[0] - 200, ys[0] - 200, SEA_Z], [xs[-1] + 200, ys[0] - 200, SEA_Z],
     [xs[-1] + 200, ys[-1] + 200, SEA_Z], [xs[0] - 200, ys[-1] + 200, SEA_Z]]),

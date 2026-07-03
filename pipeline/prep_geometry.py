@@ -213,9 +213,14 @@ for r in roads:
             fill=float((za + zb) / 2), width=wpx)
 zarr = np.asarray(zimg)
 road_mask = zarr > -999
-heightmap = np.where(road_mask, np.minimum(heightmap, (zarr + 0.10).astype(np.float32)), heightmap)
+# roads define the ground exactly (carve high spots AND fill dips under them)
+heightmap = np.where(road_mask, (zarr + 0.10).astype(np.float32), heightmap)
+# lift low-lying land clear of the sea plane (true ocean cells are exactly 0.0);
+# the waterfront apron sat below the old sea level and rendered flooded
+land_low = (heightmap > 0.02) & (heightmap < 0.6)
+heightmap = np.where(land_low, 0.6, heightmap)
 np.save(OUT / f"{NAME}_heightmap.npy", heightmap)
-print(f"terrain carved under {int(road_mask.sum())} road cells")
+print(f"terrain carved under {int(road_mask.sum())} road cells; {int(land_low.sum())} low land cells lifted")
 
 # ---- buildings
 NAMED = {

@@ -106,6 +106,19 @@ public class GameHUD : MonoBehaviour
             GUI.Label(new Rect(w - 184, 16, 160, 24), $"St. John's  —  {day.ClockText()}", label);
         }
 
+        // loonies (below the minimap)
+        GUI.Box(new Rect(w - 196, 236, 180, 30), "");
+        GUI.Label(new Rect(w - 184, 240, 160, 24), $"<b>${gm.Loonies}</b>", label);
+
+        // taxi job objective (second bar, under the car status line)
+        var taxi = gm.GetComponent<TaxiSystem>();
+        string taxiLine = taxi != null ? taxi.ObjectiveText() : null;
+        if (taxiLine != null)
+        {
+            GUI.Box(new Rect(16, 88, 620, 34), "");
+            GUI.Label(new Rect(28, 94, 600, 26), $"<b>{taxiLine}</b>", label);
+        }
+
         // minimap (top-right)
         if (minimapRT != null)
         {

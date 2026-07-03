@@ -14,6 +14,7 @@ public class GameManager : MonoBehaviour
     public CoordinateMapper Mapper { get; private set; }
     public SimpleWalker Player { get; private set; }
     public bool Ready { get; private set; }
+    public int Loonies = 25;   // starting pocket money
 
     [Serializable]
     class SaveData
@@ -21,6 +22,7 @@ public class GameManager : MonoBehaviour
         public float px, py, pz;
         public float hour;
         public int questStep;
+        public int loonies;
     }
 
     string SavePath => Path.Combine(Application.persistentDataPath, "stjohns_save.json");
@@ -44,6 +46,7 @@ public class GameManager : MonoBehaviour
         gameObject.AddComponent<TrafficSystem>();
         gameObject.AddComponent<PedestrianSystem>();
         gameObject.AddComponent<QuestSystem>();
+        gameObject.AddComponent<TaxiSystem>();
         gameObject.AddComponent<GameHUD>();
         Ready = true;
     }
@@ -72,6 +75,7 @@ public class GameManager : MonoBehaviour
             pz = PlayerPosition().z,
             hour = GetComponent<DayNightCycle>().hour,
             questStep = GetComponent<QuestSystem>().CurrentStep,
+            loonies = Loonies,
         };
         File.WriteAllText(SavePath, JsonUtility.ToJson(data));
         GameHUD.Toast("Saved, b'y.");
@@ -92,6 +96,7 @@ public class GameManager : MonoBehaviour
         }
         GetComponent<DayNightCycle>().hour = data.hour;
         GetComponent<QuestSystem>().SetStep(data.questStep);
+        Loonies = data.loonies;
         GameHUD.Toast("Loaded.");
     }
 }

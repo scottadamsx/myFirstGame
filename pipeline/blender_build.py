@@ -214,9 +214,10 @@ if juncs:
     # per-vertex UVs sampling plain asphalt away from the dashed center line
     juv_parts = []
     for j in juncs:
-        center_uv = np.array([[0.75, j["y"] / 12.0]])
-        ring_uv = np.column_stack([0.75 + 0.2 * np.cos(ang),
-                                   (j["y"] + np.sin(ang) * j["r"]) / 12.0])
+        # sample a tiny plain-asphalt patch — big UV spans made discs swirl
+        center_uv = np.array([[0.68, j["y"] / 12.0]])
+        ring_uv = np.column_stack([0.68 + 0.03 * np.cos(ang),
+                                   j["y"] / 12.0 + 0.03 * np.sin(ang)])
         juv_parts.append(np.vstack([center_uv, ring_uv]))
     juv_pts = np.concatenate(juv_parts)
     jtris_all = np.concatenate(jtris)

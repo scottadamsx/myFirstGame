@@ -129,17 +129,28 @@ save(grass, "grass.png")
 # ---------------- asphalt ----------------
 asphalt_photo = DL / "asphalt_acg" / "Asphalt008_1K-JPG_Color.jpg"
 if asphalt_photo.exists():
-    asphalt = photo(asphalt_photo, S, mean=74)
+    # heavily flattened: the photo's macro blotches read as cracked mud when
+    # stretched across a road's width — keep only fine grain
+    asphalt = photo(asphalt_photo, S, mean=70) * 0.35 + 70 * 0.65
 else:
     a = smooth_noise(S, 48, 58, 74)
     a += rng.normal(0, 6, (S, S))
     asphalt = np.stack([a, a, a * 1.04], axis=-1)
-# dashed center line (texture x == across the road)
+asphalt += rng.normal(0, 3, (S, S, 3))
+# dashed center line — narrower and dimmer
 for y0 in range(0, S, 84):
-    asphalt[y0:y0 + 52, 248:264] = (172, 155, 96)
+    asphalt[y0:y0 + 50, 251:261] = (146, 136, 92)
 # worn edges
-asphalt[:, :14] += 14
-asphalt[:, -14:] += 14
+asphalt[:, :12] += 10
+asphalt[:, -12:] += 10
 blur = Image.fromarray(np.clip(asphalt, 0, 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(1))
 blur.save(DEST / "asphalt.png")
 print("wrote", DEST / "asphalt.png")
+
+# ---------------- concrete (paths + sidewalks — NO road markings) ----------------
+c = smooth_noise(S, 64, 160, 176)
+c += rng.normal(0, 3.5, (S, S))
+for y0 in range(0, S, 128):                      # expansion joints
+    c[y0:y0 + 3, :] -= 18
+concrete = np.stack([c, c * 0.99, c * 0.965], axis=-1)
+save(concrete, "concrete.png")

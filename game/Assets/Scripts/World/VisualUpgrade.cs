@@ -14,6 +14,7 @@ public class VisualUpgrade : MonoBehaviour
         var facade = Resources.Load<Texture2D>("City/facade");
         var grass = Resources.Load<Texture2D>("City/grass");
         var asphalt = Resources.Load<Texture2D>("City/asphalt");
+        var concrete = Resources.Load<Texture2D>("City/concrete");
 
         var vcShader = Shader.Find("StJohns/VertexColorLit");
         var lit = Shader.Find("Universal Render Pipeline/Lit");
@@ -31,8 +32,8 @@ public class VisualUpgrade : MonoBehaviour
         roadMat.SetFloat("_Smoothness", 0.25f);
 
         var pathMat = new Material(lit);
-        pathMat.SetTexture("_BaseMap", asphalt);
-        pathMat.SetColor("_BaseColor", new Color(1.0f, 0.95f, 0.85f));
+        pathMat.SetTexture("_BaseMap", concrete != null ? concrete : asphalt);
+        pathMat.SetColor("_BaseColor", new Color(0.92f, 0.89f, 0.83f));
         pathMat.SetFloat("_Smoothness", 0.05f);
 
         var waterMat = new Material(lit);
@@ -41,7 +42,8 @@ public class VisualUpgrade : MonoBehaviour
         waterMat.SetFloat("_Metallic", 0.1f);
 
         var sidewalkMat = new Material(lit);
-        sidewalkMat.SetColor("_BaseColor", new Color(0.62f, 0.61f, 0.58f));
+        if (concrete != null) sidewalkMat.SetTexture("_BaseMap", concrete);
+        sidewalkMat.SetColor("_BaseColor", new Color(0.72f, 0.71f, 0.68f));
         sidewalkMat.SetFloat("_Smoothness", 0.02f);
 
         foreach (var mr in city.GetComponentsInChildren<MeshRenderer>())

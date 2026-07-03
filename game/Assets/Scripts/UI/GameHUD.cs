@@ -106,9 +106,20 @@ public class GameHUD : MonoBehaviour
             GUI.Label(new Rect(w - 184, 16, 160, 24), $"St. John's  —  {day.ClockText()}", label);
         }
 
-        // loonies (below the minimap)
+        // loonies + puffins (below the minimap)
+        var pufs = gm.GetComponent<Collectibles>();
+        string pufText = pufs != null ? $"   puffins {pufs.Collected.Count}/{Collectibles.Total}" : "";
         GUI.Box(new Rect(w - 196, 236, 180, 30), "");
-        GUI.Label(new Rect(w - 184, 240, 160, 24), $"<b>${gm.Loonies}</b>", label);
+        GUI.Label(new Rect(w - 184, 240, 172, 24), $"<b>${gm.Loonies}</b>{pufText}", label);
+
+        // mission objective (third bar)
+        var missions = gm.GetComponent<MissionManager>();
+        string missionLine = missions != null ? missions.ObjectiveText() : null;
+        if (missionLine != null)
+        {
+            GUI.Box(new Rect(16, 126, 620, 34), "");
+            GUI.Label(new Rect(28, 132, 600, 26), $"<b>{missionLine}</b>", label);
+        }
 
         // taxi job objective (second bar, under the car status line)
         var taxi = gm.GetComponent<TaxiSystem>();

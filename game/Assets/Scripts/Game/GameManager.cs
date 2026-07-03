@@ -23,6 +23,9 @@ public class GameManager : MonoBehaviour
         public float hour;
         public int questStep;
         public int loonies;
+        public int[] puffins;
+        public int[] itemCounts;
+        public int missionsMask;
     }
 
     string SavePath => Path.Combine(Application.persistentDataPath, "stjohns_save.json");
@@ -47,6 +50,9 @@ public class GameManager : MonoBehaviour
         gameObject.AddComponent<PedestrianSystem>();
         gameObject.AddComponent<QuestSystem>();
         gameObject.AddComponent<TaxiSystem>();
+        gameObject.AddComponent<Collectibles>();
+        gameObject.AddComponent<Inventory>();
+        gameObject.AddComponent<MissionManager>();
         gameObject.AddComponent<GameHUD>();
         Ready = true;
     }
@@ -76,6 +82,9 @@ public class GameManager : MonoBehaviour
             hour = GetComponent<DayNightCycle>().hour,
             questStep = GetComponent<QuestSystem>().CurrentStep,
             loonies = Loonies,
+            puffins = GetComponent<Collectibles>().Export(),
+            itemCounts = GetComponent<Inventory>().ExportCounts(),
+            missionsMask = GetComponent<MissionManager>().ExportMask(),
         };
         File.WriteAllText(SavePath, JsonUtility.ToJson(data));
         GameHUD.Toast("Saved, b'y.");
@@ -97,6 +106,9 @@ public class GameManager : MonoBehaviour
         GetComponent<DayNightCycle>().hour = data.hour;
         GetComponent<QuestSystem>().SetStep(data.questStep);
         Loonies = data.loonies;
+        GetComponent<Collectibles>().Apply(data.puffins);
+        GetComponent<Inventory>().ApplyCounts(data.itemCounts);
+        GetComponent<MissionManager>().ApplyMask(data.missionsMask);
         GameHUD.Toast("Loaded.");
     }
 }

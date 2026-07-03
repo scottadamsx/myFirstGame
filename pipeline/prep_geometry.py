@@ -13,7 +13,7 @@ import math
 import pathlib
 
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 HERE = pathlib.Path(__file__).parent
 CFG = json.loads((HERE / "config.json").read_text())
@@ -233,26 +233,36 @@ for key, members in junc_map.items():
                           "r": round(wmax * 0.62 + 1.2, 2)})
 print(f"junctions: {len(junctions)} discs, {len(junc_map)} endpoint clusters harmonized")
 
-# ---- carve the terrain to meet the roads (kills floating/poking-through)
-zimg = Image.new("F", (nx, ny), -1000.0)
+# ---- carve the terrain to meet the roads with FEATHERED edges (the exact-set
+# version left hard shelf edges along every road corridor)
+zimg = Image.new("F", (nx, ny), -1000.0)     # wide: target elevations
+mimg = Image.new("L", (nx, ny), 0)           # narrow: blend weight core
 zdraw = ImageDraw.Draw(zimg)
+mdraw = ImageDraw.Draw(mimg)
 for r in roads:
     if r["kind"] != "road":
         continue
-    wpx = max(1, int(round((r["width"] + 3.0) / STEP)))
+    wide_px = max(2, int(round((r["width"] + 10.0) / STEP)))
+    core_px = max(1, int(round((r["width"] + 3.0) / STEP)))
     for (a, za), (bpt, zb) in zip(zip(r["pts"], r["zs"]), list(zip(r["pts"], r["zs"]))[1:]):
-        zdraw.line(
-            [(a[0] - x_min) / STEP, (a[1] - y_min) / STEP,
-             (bpt[0] - x_min) / STEP, (bpt[1] - y_min) / STEP],
-            fill=float((za + zb) / 2), width=wpx)
+        seg = [(a[0] - x_min) / STEP, (a[1] - y_min) / STEP,
+               (bpt[0] - x_min) / STEP, (bpt[1] - y_min) / STEP]
+        zdraw.line(seg, fill=float((za + zb) / 2), width=wide_px)
+        mdraw.line(seg, fill=255, width=core_px)
 for j in junctions:   # carve under junction discs too
     px, py_ = (j["x"] - x_min) / STEP, (j["y"] - y_min) / STEP
-    pr = (j["r"] + 2.0) / STEP
-    zdraw.ellipse([px - pr, py_ - pr, px + pr, py_ + pr], fill=float(j["z"]))
+    pw = (j["r"] + 6.0) / STEP
+    pc = (j["r"] + 2.0) / STEP
+    zdraw.ellipse([px - pw, py_ - pw, px + pw, py_ + pw], fill=float(j["z"]))
+    mdraw.ellipse([px - pc, py_ - pc, px + pc, py_ + pc], fill=255)
+
 zarr = np.asarray(zimg)
-road_mask = zarr > -999
-# roads define the ground exactly (carve high spots AND fill dips under them)
-heightmap = np.where(road_mask, (zarr + 0.10).astype(np.float32), heightmap)
+valid = zarr > -999
+weight = np.asarray(mimg.filter(ImageFilter.GaussianBlur(2.0)), dtype=np.float32) / 255.0
+weight = np.where(valid, weight, 0.0)
+target = np.where(valid, zarr + 0.10, heightmap)
+heightmap = (heightmap * (1 - weight) + target * weight).astype(np.float32)
+road_mask = valid   # for the report line below
 # lift low-lying land clear of the sea plane (true ocean cells are exactly 0.0);
 # the waterfront apron sat below the old sea level and rendered flooded
 land_low = (heightmap > 0.02) & (heightmap < 0.6)

@@ -4,9 +4,9 @@ using UnityEngine;
 /// Ambient cars cruising the road network near the player.
 public class TrafficSystem : MonoBehaviour
 {
-    const int MaxCars = 22;
-    const float SpawnRadius = 700f;
-    const float DespawnRadius = 1100f;
+    const int MaxCars = 30;
+    const float SpawnRadius = 550f;
+    const float DespawnRadius = 900f;
 
     GameManager gm;
     List<RoadData> drivable;

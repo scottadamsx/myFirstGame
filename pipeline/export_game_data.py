@@ -38,7 +38,10 @@ def sample_h(x, y):
 roads = []
 for r in VEC["roads"]:
     pts = np.asarray(r["pts"], dtype=float)
-    zs = sample_h(pts[:, 0], pts[:, 1]) + 0.55
+    if "zs" in r:   # smoothed centerline elevations from prep — matches the road mesh
+        zs = np.asarray(r["zs"], dtype=float) + 0.35
+    else:
+        zs = sample_h(pts[:, 0], pts[:, 1]) + 0.55
     roads.append({
         "xs": [round(v, 2) for v in pts[:, 0]],
         "ys": [round(v, 2) for v in pts[:, 1]],

@@ -4,9 +4,9 @@ using UnityEngine;
 /// Townies wandering the sidewalks and paths near the player.
 public class PedestrianSystem : MonoBehaviour
 {
-    const int MaxPeds = 26;
-    const float SpawnRadius = 320f;
-    const float DespawnRadius = 500f;
+    const int MaxPeds = 40;
+    const float SpawnRadius = 420f;
+    const float DespawnRadius = 620f;
 
     GameManager gm;
     List<RoadData> walkable;
@@ -109,9 +109,10 @@ public class PedestrianSystem : MonoBehaviour
 
 public class Pedestrian : MonoBehaviour
 {
-    GameManager gm;
-    RoadData road;
-    int index;
+    public GameManager gm;
+    public RoadData road;
+    public int index;
+    public int sideSign = 1;
     int dir = 1;
     float speed;
     Vector3 target;
@@ -157,6 +158,7 @@ public class Pedestrian : MonoBehaviour
         ped.gm = gm;
         ped.road = road;
         ped.index = idx;
+        ped.sideSign = prng.Next(2) * 2 - 1;   // which sidewalk they use
         ped.speed = 1.1f + (float)new System.Random(idx * 31 + 1).NextDouble() * 0.9f;
         ped.transform.position = ped.Point(idx);
         ped.Advance();
@@ -166,6 +168,16 @@ public class Pedestrian : MonoBehaviour
     Vector3 Point(int i)
     {
         Vector3 p = gm.Mapper.ToUnity(road.xs[i], road.ys[i], road.zs[i]);
+        // walk the sidewalk, not the centerline
+        int j = i + 1 < road.PointCount ? i + 1 : i - 1;
+        if (road.kind == "road" && j >= 0)
+        {
+            Vector3 q = gm.Mapper.ToUnity(road.xs[j], road.ys[j], road.zs[j]);
+            Vector3 d = q - p;
+            d.y = 0;
+            if (d.sqrMagnitude > 0.01f)
+                p += Vector3.Cross(Vector3.up, d.normalized) * (sideSign * (j > i ? 1 : -1)) * (road.width / 2 + 1.05f);
+        }
         return CoordinateMapper.DropToGround(p, 30f);
     }
 

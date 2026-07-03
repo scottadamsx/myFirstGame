@@ -40,6 +40,10 @@ public class VisualUpgrade : MonoBehaviour
         waterMat.SetFloat("_Smoothness", 0.93f);
         waterMat.SetFloat("_Metallic", 0.1f);
 
+        var sidewalkMat = new Material(lit);
+        sidewalkMat.SetColor("_BaseColor", new Color(0.62f, 0.61f, 0.58f));
+        sidewalkMat.SetFloat("_Smoothness", 0.02f);
+
         foreach (var mr in city.GetComponentsInChildren<MeshRenderer>())
         {
             string n = mr.gameObject.name;
@@ -47,7 +51,11 @@ public class VisualUpgrade : MonoBehaviour
             else if (n.StartsWith("Terrain")) mr.sharedMaterial = terrainMat;
             else if (n.StartsWith("Roads")) mr.sharedMaterial = roadMat;
             else if (n.StartsWith("Paths")) mr.sharedMaterial = pathMat;
+            else if (n.StartsWith("Sidewalks")) mr.sharedMaterial = sidewalkMat;
             else if (n.StartsWith("Sea") || n.StartsWith("Lakes")) mr.sharedMaterial = waterMat;
+            // pipeline additions arrive after the scene was built — heal colliders
+            if (mr.GetComponent<MeshCollider>() == null)
+                mr.gameObject.AddComponent<MeshCollider>();
         }
 
         // real HDRI sky (Poly Haven, CC0) if present, else the generated panorama

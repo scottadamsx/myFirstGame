@@ -139,27 +139,34 @@ new_object("Terrain", tmesh)
 print(f"terrain: {len(tverts)} verts", flush=True)
 
 # ---------------- roads ---------------------------------------------------------
-def build_ribbons(items, z_off):
+def build_ribbons(items, z_off, sidewalk_side=0):
+    """Flat-cambered ribbons following each item's smoothed centerline zs.
+    sidewalk_side=+1/-1 builds a 1.8m sidewalk offset outside the road edge."""
     verts, quads, uvs = [], [], []
     base = 0
     for it in items:
         pts = np.asarray(it["pts"], dtype=np.float64)
         if len(pts) < 2:
             continue
+        zs = np.asarray(it["zs"], dtype=np.float64) if "zs" in it else sample_h(pts[:, 0], pts[:, 1])
         seg = np.diff(pts, axis=0)
         seg_len = np.linalg.norm(seg, axis=1)
         seg_n = seg / np.maximum(seg_len[:, None], 1e-9)
         vn = np.vstack([seg_n[:1], (seg_n[:-1] + seg_n[1:]) / 2, seg_n[-1:]])
         vn /= np.maximum(np.linalg.norm(vn, axis=1, keepdims=True), 1e-9)
         perp = np.stack([-vn[:, 1], vn[:, 0]], axis=1)
-        hw = it["width"] / 2
-        left = pts + perp * hw
-        right = pts - perp * hw
-        zl = sample_h(left[:, 0], left[:, 1]) + z_off
-        zr = sample_h(right[:, 0], right[:, 1]) + z_off
+        if sidewalk_side != 0:
+            center = pts + perp * sidewalk_side * (it["width"] / 2 + 1.05)
+            hw = 0.9
+        else:
+            center = pts
+            hw = it["width"] / 2
+        left = center + perp * hw
+        right = center - perp * hw
+        z = zs + z_off                                # flat across the width
         n = len(pts)
-        verts.append(np.column_stack([left, zl]))
-        verts.append(np.column_stack([right, zr]))
+        verts.append(np.column_stack([left, z]))
+        verts.append(np.column_stack([right, z]))
         v_along = np.concatenate([[0], np.cumsum(seg_len)]) / 12.0   # texture repeats every 12 m
         uvs.append(np.column_stack([np.zeros(n), v_along]))          # left edge: u=0
         uvs.append(np.column_stack([np.ones(n), v_along]))           # right edge: u=1
@@ -177,17 +184,28 @@ def build_ribbons(items, z_off):
 
 roads = [r for r in VEC["roads"] if r["kind"] == "road"]
 paths = [r for r in VEC["roads"] if r["kind"] == "path"]
-rv = build_ribbons(roads, 0.45)
+rv = build_ribbons(roads, 0.18)
 if rv:
     m = make_mesh_fast("Roads", rv[0], quads_np=rv[1], uvs=rv[2])
     m.materials.append(flat_material("Asphalt", (0.055, 0.055, 0.06), rough=0.95))
     new_object("Roads", m)
-pv = build_ribbons(paths, 0.40)
+pv = build_ribbons(paths, 0.14)
 if pv:
     m = make_mesh_fast("Paths", pv[0], quads_np=pv[1], uvs=pv[2])
     m.materials.append(flat_material("Path", (0.34, 0.31, 0.27), rough=1.0))
     new_object("Paths", m)
-print(f"roads: {len(roads)} ways, paths: {len(paths)}", flush=True)
+walkable = [r for r in roads if r["width"] >= 6]
+sw_parts = [build_ribbons(walkable, 0.30, sidewalk_side=s) for s in (1, -1)]
+sw_parts = [p for p in sw_parts if p]
+if sw_parts:
+    sverts = np.concatenate([p[0] for p in sw_parts])
+    offs = np.cumsum([0] + [len(p[0]) for p in sw_parts[:-1]])
+    squads = np.concatenate([p[1] + o for p, o in zip(sw_parts, offs)])
+    suvs = np.concatenate([p[2] for p in sw_parts])
+    m = make_mesh_fast("Sidewalks", sverts, quads_np=squads, uvs=suvs)
+    m.materials.append(flat_material("Sidewalk", (0.58, 0.57, 0.54), rough=1.0))
+    new_object("Sidewalks", m)
+print(f"roads: {len(roads)} ways, paths: {len(paths)}, sidewalked: {len(walkable)}", flush=True)
 
 # ---------------- buildings -----------------------------------------------------
 # Rectangular buildings get GABLE roofs (this is St. John's); others stay flat.

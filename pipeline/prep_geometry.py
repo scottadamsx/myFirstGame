@@ -71,8 +71,36 @@ heightmap = np.clip(heightmap, -8, None).astype(np.float32)
 # ascending -> py descending -> heightmap rows already ordered south->north. Verify:
 if py[0] < py[-1]:
     heightmap = heightmap[::-1]
-np.save(OUT / f"{NAME}_heightmap.npy", heightmap)
 print(f"heightmap {nx}x{ny} @ {STEP} m, range {heightmap.min():.1f}..{heightmap.max():.1f} m")
+# NOTE: saved AFTER road carving below
+
+
+def sample_hm(x, y):
+    gx = np.clip((np.asarray(x, dtype=float) - x_min) / STEP, 0, nx - 1.001)
+    gy = np.clip((np.asarray(y, dtype=float) - y_min) / STEP, 0, ny - 1.001)
+    ix, iy = gx.astype(int), gy.astype(int)
+    fx, fy = gx - ix, gy - iy
+    return (heightmap[iy, ix] * (1 - fx) * (1 - fy) + heightmap[iy, ix + 1] * fx * (1 - fy)
+            + heightmap[iy + 1, ix] * (1 - fx) * fy + heightmap[iy + 1, ix + 1] * fx * fy)
+
+
+def resample(pts, max_len=8.0):
+    """Insert points so no segment exceeds max_len — smooth terrain following."""
+    out = [pts[0]]
+    for a, b in zip(pts, pts[1:]):
+        d = math.hypot(b[0] - a[0], b[1] - a[1])
+        steps = max(1, int(d // max_len) + 1)
+        for s in range(1, steps + 1):
+            out.append((a[0] + (b[0] - a[0]) * s / steps, a[1] + (b[1] - a[1]) * s / steps))
+    return out
+
+
+def smooth1d(values, k=7):
+    v = np.asarray(values, dtype=float)
+    if len(v) < 3:
+        return v
+    pad = k // 2
+    return np.convolve(np.pad(v, pad, mode="edge"), np.ones(k) / k, mode="valid")
 
 # ---------------- OSM parse ----------------------------------------------------
 osm = json.loads((DL / f"{NAME}_osm.json").read_text())
@@ -160,12 +188,34 @@ for w in ways.values():
     if not hw or hw not in ROAD_WIDTHS:
         continue
     pts = way_pts(w)
-    if len(pts) >= 2:
-        roads.append({
-            "pts": [[round(x, 2), round(y, 2)] for x, y in pts],
-            "width": ROAD_WIDTHS[hw],
-            "kind": "path" if hw in PATH_CLASSES else "road",
-        })
+    if len(pts) < 2:
+        continue
+    pts = resample(pts)
+    zs = smooth1d(sample_hm([p[0] for p in pts], [p[1] for p in pts]))
+    roads.append({
+        "pts": [[round(x, 2), round(y, 2)] for x, y in pts],
+        "zs": [round(float(z), 2) for z in zs],
+        "width": ROAD_WIDTHS[hw],
+        "kind": "path" if hw in PATH_CLASSES else "road",
+    })
+
+# ---- carve the terrain to meet the roads (kills floating/poking-through)
+zimg = Image.new("F", (nx, ny), -1000.0)
+zdraw = ImageDraw.Draw(zimg)
+for r in roads:
+    if r["kind"] != "road":
+        continue
+    wpx = max(1, int(round((r["width"] + 3.0) / STEP)))
+    for (a, za), (bpt, zb) in zip(zip(r["pts"], r["zs"]), list(zip(r["pts"], r["zs"]))[1:]):
+        zdraw.line(
+            [(a[0] - x_min) / STEP, (a[1] - y_min) / STEP,
+             (bpt[0] - x_min) / STEP, (bpt[1] - y_min) / STEP],
+            fill=float((za + zb) / 2), width=wpx)
+zarr = np.asarray(zimg)
+road_mask = zarr > -999
+heightmap = np.where(road_mask, np.minimum(heightmap, (zarr + 0.10).astype(np.float32)), heightmap)
+np.save(OUT / f"{NAME}_heightmap.npy", heightmap)
+print(f"terrain carved under {int(road_mask.sum())} road cells")
 
 # ---- buildings
 NAMED = {

@@ -8,7 +8,7 @@ public static class GameBootstrap
     static void Init()
     {
         if (GameObject.Find("City_Downtown") == null) return;
-        if (Object.FindFirstObjectByType<GameManager>() != null) return;
+        if (Object.FindAnyObjectByType<GameManager>() != null) return;
         new GameObject("GameManager").AddComponent<GameManager>();
     }
 }

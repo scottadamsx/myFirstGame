@@ -13,6 +13,10 @@ public class ArcadeCar : MonoBehaviour
     public float grip = 8f;            // lateral slip damping
 
     Rigidbody rb;
+    Transform visuals;
+    Vector3 lastVel;
+    float pitch, roll;
+    TrailRenderer[] skidmarks;
 
     public static readonly Color[] Palette =
     {
@@ -45,6 +49,12 @@ public class ArcadeCar : MonoBehaviour
         };
         var box = GetComponent<BoxCollider>();
         if (box != null) box.sharedMaterial = slippery;
+    }
+
+    void Start()
+    {
+        visuals = transform.Find("Visuals");
+        skidmarks = GetComponentsInChildren<TrailRenderer>();
     }
 
     public bool Grounded =>
@@ -103,49 +113,126 @@ public class ArcadeCar : MonoBehaviour
 
         if (handbrake)
             rb.AddForce(-flatVel.normalized * rb.mass * 6f * Time.fixedDeltaTime, ForceMode.Impulse);
+
+        Vector3 accel = (rb.linearVelocity - lastVel) / Time.fixedDeltaTime;
+        lastVel = rb.linearVelocity;
+        Vector3 locAccel = transform.InverseTransformDirection(accel);
+        
+        float targetPitch = Mathf.Clamp(-locAccel.z * 0.5f, -6f, 6f);
+        float targetRoll = Mathf.Clamp(locAccel.x * 0.6f, -10f, 10f);
+        pitch = Mathf.Lerp(pitch, targetPitch, Time.fixedDeltaTime * 10f);
+        roll = Mathf.Lerp(roll, targetRoll, Time.fixedDeltaTime * 10f);
+        
+        bool sliding = handbrake || Mathf.Abs(locAccel.x) > 8f;
+        if (skidmarks != null)
+        {
+            foreach (var sm in skidmarks) sm.emitting = grounded && sliding && flatVel.magnitude > 4f;
+        }
     }
 
-    /// Builds a simple car: body, cabin, four wheels, one box collider.
+    void Update()
+    {
+        if (visuals != null)
+        {
+            visuals.localRotation = Quaternion.Euler(pitch, 0, roll);
+        }
+    }
+
+    /// Builds a car that reads as a car: low body, glass cabin band, roof,
+    /// proper wheels with hubs, emissive head/tail lights. One box collider.
     public static GameObject BuildVisual(Color color, string name)
     {
         var root = new GameObject(name);
+        var visuals = new GameObject("Visuals");
+        visuals.transform.SetParent(root.transform, false);
 
-        var body = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        Object.Destroy(body.GetComponent<Collider>());
-        body.transform.SetParent(root.transform, false);
-        body.transform.localPosition = new Vector3(0, 0.55f, 0);
-        body.transform.localScale = new Vector3(1.8f, 0.55f, 4.2f);
-        Tint(body, color);
+        Color glass = new Color(0.09f, 0.11f, 0.14f);
 
-        var cabin = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        Object.Destroy(cabin.GetComponent<Collider>());
-        cabin.transform.SetParent(root.transform, false);
-        cabin.transform.localPosition = new Vector3(0, 1.05f, -0.35f);
-        cabin.transform.localScale = new Vector3(1.6f, 0.5f, 2.0f);
-        Tint(cabin, Color.Lerp(color, new Color(0.1f, 0.12f, 0.15f), 0.55f));
+        Part(visuals, new Vector3(0, 0.48f, 0), new Vector3(1.76f, 0.44f, 4.1f), color, 0.6f);          // body
+        Part(visuals, new Vector3(0, 0.92f, -0.25f), new Vector3(1.58f, 0.4f, 2.05f), glass, 0.9f);     // glass band
+        Part(visuals, new Vector3(0, 1.14f, -0.25f), new Vector3(1.5f, 0.07f, 1.9f), color, 0.6f);      // roof
+        Part(visuals, new Vector3(0, 0.62f, 2.02f), new Vector3(1.7f, 0.16f, 0.1f), Color.Lerp(color, Color.black, 0.35f), 0.4f);  // bumper hint
+
+        for (int s = -1; s <= 1; s += 2)
+        {
+            Emissive(visuals, new Vector3(s * 0.56f, 0.56f, 2.06f), new Vector3(0.3f, 0.12f, 0.05f), new Color(1f, 0.95f, 0.8f));   // headlights
+            Emissive(visuals, new Vector3(s * 0.6f, 0.56f, -2.06f), new Vector3(0.26f, 0.12f, 0.05f), new Color(0.9f, 0.1f, 0.08f)); // taillights
+        }
 
         for (int i = 0; i < 4; i++)
         {
+            float x = i % 2 == 0 ? -0.86f : 0.86f;
+            float z = i < 2 ? 1.32f : -1.32f;
             var w = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             Object.Destroy(w.GetComponent<Collider>());
-            w.transform.SetParent(root.transform, false);
+            w.transform.SetParent(visuals.transform, false);
             w.transform.localRotation = Quaternion.Euler(0, 0, 90);
-            w.transform.localScale = new Vector3(0.62f, 0.14f, 0.62f);
-            w.transform.localPosition = new Vector3(i % 2 == 0 ? -0.85f : 0.85f, 0.31f, i < 2 ? 1.35f : -1.35f);
-            Tint(w, new Color(0.08f, 0.08f, 0.09f));
+            w.transform.localScale = new Vector3(0.68f, 0.15f, 0.68f);
+            w.transform.localPosition = new Vector3(x, 0.34f, z);
+            TintObj(w, new Color(0.07f, 0.07f, 0.08f), 0.3f);
+
+            var hub = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            Object.Destroy(hub.GetComponent<Collider>());
+            hub.transform.SetParent(visuals.transform, false);
+            hub.transform.localRotation = Quaternion.Euler(0, 0, 90);
+            hub.transform.localScale = new Vector3(0.3f, 0.16f, 0.3f);
+            hub.transform.localPosition = new Vector3(x, 0.34f, z);
+            TintObj(hub, new Color(0.55f, 0.55f, 0.58f), 0.7f);
+
+            // Skidmark trails on rear wheels
+            if (i >= 2) 
+            {
+                var trail = new GameObject("Skidmark").AddComponent<TrailRenderer>();
+                trail.transform.SetParent(root.transform, false);
+                trail.transform.localPosition = new Vector3(x, 0.05f, z);
+                trail.time = 2.5f;
+                trail.startWidth = 0.4f;
+                trail.endWidth = 0.4f;
+                trail.minVertexDistance = 0.2f;
+                trail.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                trail.material.SetColor("_BaseColor", new Color(0.1f, 0.1f, 0.1f, 0.8f));
+                trail.material.SetFloat("_Surface", 1); // Transparent
+                trail.material.renderQueue = 3000;
+                trail.emitting = false;
+                trail.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
         }
 
         var col = root.AddComponent<BoxCollider>();
-        col.center = new Vector3(0, 0.7f, 0);
-        col.size = new Vector3(1.85f, 1.15f, 4.25f);
+        col.center = new Vector3(0, 0.68f, 0);
+        col.size = new Vector3(1.82f, 1.1f, 4.15f);
         return root;
     }
 
-    static void Tint(GameObject go, Color c)
+    static void Part(GameObject root, Vector3 pos, Vector3 scale, Color c, float smooth)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        Object.Destroy(go.GetComponent<Collider>());
+        go.transform.SetParent(root.transform, false);
+        go.transform.localPosition = pos;
+        go.transform.localScale = scale;
+        TintObj(go, c, smooth);
+    }
+
+    static void Emissive(GameObject root, Vector3 pos, Vector3 scale, Color c)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        Object.Destroy(go.GetComponent<Collider>());
+        go.transform.SetParent(root.transform, false);
+        go.transform.localPosition = pos;
+        go.transform.localScale = scale;
+        var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        mat.SetColor("_BaseColor", c);
+        mat.EnableKeyword("_EMISSION");
+        mat.SetColor("_EmissionColor", c * 1.8f);
+        go.GetComponent<MeshRenderer>().sharedMaterial = mat;
+    }
+
+    static void TintObj(GameObject go, Color c, float smooth)
     {
         var mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
         mat.SetColor("_BaseColor", c);
-        mat.SetFloat("_Smoothness", 0.55f);
+        mat.SetFloat("_Smoothness", smooth);
         go.GetComponent<MeshRenderer>().sharedMaterial = mat;
     }
 

@@ -39,7 +39,7 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
-        Player = FindFirstObjectByType<SimpleWalker>();
+        Player = FindAnyObjectByType<SimpleWalker>();
         if (Player != null)
         {
             respawnPos = Player.transform.position;

@@ -21,18 +21,22 @@ public class VisualUpgrade : MonoBehaviour
 
         var buildingsMat = new Material(vcShader);
         buildingsMat.SetTexture("_BaseMap", facade);
+        buildingsMat.SetTextureScale("_BaseMap", new Vector2(10f, 10f));
         buildingsMat.SetFloat("_FacadeMode", 1f);
 
         var terrainMat = new Material(vcShader);
         terrainMat.SetTexture("_BaseMap", grass);
+        terrainMat.SetTextureScale("_BaseMap", new Vector2(250f, 250f));
         terrainMat.SetFloat("_WindWave", 1f);
 
         var roadMat = new Material(lit);
         roadMat.SetTexture("_BaseMap", asphalt);
+        roadMat.SetTextureScale("_BaseMap", new Vector2(300f, 300f));
         roadMat.SetFloat("_Smoothness", 0.25f);
 
         var pathMat = new Material(lit);
         pathMat.SetTexture("_BaseMap", concrete != null ? concrete : asphalt);
+        pathMat.SetTextureScale("_BaseMap", new Vector2(300f, 300f));
         pathMat.SetColor("_BaseColor", new Color(0.92f, 0.89f, 0.83f));
         pathMat.SetFloat("_Smoothness", 0.05f);
 
@@ -43,21 +47,41 @@ public class VisualUpgrade : MonoBehaviour
 
         var sidewalkMat = new Material(lit);
         if (concrete != null) sidewalkMat.SetTexture("_BaseMap", concrete);
-        sidewalkMat.SetColor("_BaseColor", new Color(0.72f, 0.71f, 0.68f));
+        sidewalkMat.SetTextureScale("_BaseMap", new Vector2(300f, 300f));
+        sidewalkMat.SetColor("_BaseColor", new Color(0.55f, 0.55f, 0.52f));   // darker: no more floating planks
         sidewalkMat.SetFloat("_Smoothness", 0.02f);
 
         foreach (var mr in city.GetComponentsInChildren<MeshRenderer>())
         {
             string n = mr.gameObject.name;
-            if (n.StartsWith("Buildings")) mr.sharedMaterial = buildingsMat;
+            if (n.StartsWith("Buildings")) 
+            {
+                mr.sharedMaterial = buildingsMat;
+                if (mr.transform.localPosition.y < 0.4f) mr.transform.localPosition += Vector3.up * 0.4f;
+            }
             else if (n.StartsWith("Terrain")) mr.sharedMaterial = terrainMat;
-            else if (n.StartsWith("Roads")) mr.sharedMaterial = roadMat;
-            else if (n.StartsWith("Paths")) mr.sharedMaterial = pathMat;
-            else if (n.StartsWith("Sidewalks")) mr.sharedMaterial = sidewalkMat;
+            else if (n.StartsWith("Roads")) 
+            {
+                // Disable the old FBX roads
+                mr.gameObject.SetActive(false);
+            }
+            else if (n.StartsWith("Paths") || n.StartsWith("Sidewalks")) 
+            {
+                // Disable paths for now, or keep them
+                mr.gameObject.SetActive(false);
+            }
             else if (n.StartsWith("Sea") || n.StartsWith("Lakes")) mr.sharedMaterial = waterMat;
+            
             // pipeline additions arrive after the scene was built — heal colliders
-            if (mr.GetComponent<MeshCollider>() == null)
+            if (mr.GetComponent<MeshCollider>() == null && !n.StartsWith("Sea") && !n.StartsWith("Lakes") && mr.gameObject.activeSelf)
                 mr.gameObject.AddComponent<MeshCollider>();
+        }
+
+        // Attach the new OSM Road Generator to build perfectly smooth roads from actual server data!
+        if (gameObject.GetComponent<OSMRoadGenerator>() == null)
+        {
+            var osm = gameObject.AddComponent<OSMRoadGenerator>();
+            osm.roadMaterial = roadMat;
         }
 
         // real HDRI sky (Poly Haven, CC0) if present, else the generated panorama
@@ -84,9 +108,9 @@ public class VisualUpgrade : MonoBehaviour
         bloom.intensity.Override(0.35f);
         bloom.threshold.Override(1.0f);
         var color = profile.Add<ColorAdjustments>();
-        color.contrast.Override(12f);
-        color.saturation.Override(10f);
-        color.postExposure.Override(0.2f);
+        color.contrast.Override(16f);
+        color.saturation.Override(18f);
+        color.postExposure.Override(0.05f);   // the 0.2 exposure was washing everything chalky
         var tone = profile.Add<Tonemapping>();
         tone.mode.Override(TonemappingMode.ACES);
         var vignette = profile.Add<Vignette>();

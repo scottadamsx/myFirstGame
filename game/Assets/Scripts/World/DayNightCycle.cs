@@ -45,7 +45,7 @@ public class DayNightCycle : MonoBehaviour
         RenderSettings.fogColor = fog;
         RenderSettings.fogStartDistance = Mathf.Lerp(250f, 650f, dayness);
         RenderSettings.fogEndDistance = Mathf.Lerp(2800f, 7000f, dayness);
-        RenderSettings.ambientIntensity = Mathf.Lerp(0.25f, 1f, dayness);
+        RenderSettings.ambientIntensity = Mathf.Lerp(0.22f, 0.78f, dayness);   // flat-noon wash fix: let shadows shape the city
 
         // dim the panoramic sky through dusk and night
         var sky = RenderSettings.skybox;

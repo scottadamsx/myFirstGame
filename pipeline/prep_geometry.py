@@ -350,11 +350,15 @@ def add_building(pts, tags, bid):
         pts = pts[:-1]
     if len(pts) < 3 or abs(ring_area(pts)) < 4:
         return
+    h = building_height(tags, bid)
+    area = abs(ring_area(pts))
+    # big slabs and tall buildings read as houses-of-the-damned with home doors;
+    # treat them as commercial regardless of tags
     shop = "shop" in tags or tags.get("amenity") in ("restaurant", "pub", "cafe", "bar", "bank") \
-        or tags.get("building") in SHOP_TYPES
+        or tags.get("building") in SHOP_TYPES or area > 260 or h > 9.5
     buildings.append({
         "poly": [[round(x, 2), round(y, 2)] for x, y in ccw(pts)],
-        "height": round(building_height(tags, bid), 2),
+        "height": round(h, 2),
         "color": building_color(tags, bid),
         "shop": bool(shop),
     })
@@ -434,6 +438,14 @@ def draw_class(pts, cls):
     if len(pix) >= 3:
         draw.polygon(pix, fill=cls)
 
+
+# urban lots first: ground around buildings is pavement/gravel, not lawn —
+# grass-to-the-wall is the #1 "procedural city" tell (parks overdraw this after)
+for bld in buildings:
+    pix = [((x - x_min) / STEP, (y - y_min) / STEP) for x, y in bld["poly"]]
+    if len(pix) >= 3:
+        draw.polygon(pix, fill=4)
+        draw.line(pix + [pix[0]], fill=4, width=3)
 
 CLASS_BY_TAG = [
     ({"leisure": ("park", "pitch", "playground", "garden")}, 1),

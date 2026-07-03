@@ -54,10 +54,22 @@ public class GameHUD : MonoBehaviour
         if (Time.time > hintUntil && hintUntil > 0) { showHelp = false; hintUntil = 0; }
     }
 
+    Texture2D MakeTex(int width, int height, Color col)
+    {
+        Color[] pix = new Color[width * height];
+        for (int i = 0; i < pix.Length; ++i) pix[i] = col;
+        Texture2D result = new Texture2D(width, height);
+        result.SetPixels(pix);
+        result.Apply();
+        return result;
+    }
+
     void OnGUI()
     {
         if (label == null)
         {
+            GUI.skin.box.normal.background = MakeTex(2, 2, new Color(0.05f, 0.05f, 0.05f, 0.85f));
+            
             label = new GUIStyle(GUI.skin.label) { fontSize = 16, richText = true };
             label.normal.textColor = Color.white;
             big = new GUIStyle(GUI.skin.label) { fontSize = 22, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
@@ -146,9 +158,9 @@ public class GameHUD : MonoBehaviour
             var pc = gm.Player.GetComponent<PlayerCombat>();
             if (pc != null && pc.pistolOwned)
             {
-                GUI.Box(new Rect(w - 216, h - 152, 200, 28), "");
-                GUI.Label(new Rect(w - 208, h - 148, 190, 22),
-                    pc.pistolEquipped ? $"<b>PISTOL</b>   {pc.ammo} rds   (Q holsters)" : $"pistol holstered — Q   ({pc.ammo} rds)", label);
+                GUI.Box(new Rect(w - 240, h - 152, 224, 28), "");
+                GUI.Label(new Rect(w - 232, h - 148, 214, 22),
+                    pc.pistolEquipped ? $"<b>PISTOL</b>   {pc.clipAmmo}/{pc.ammo} rds   (Q holsters)" : $"pistol holstered — Q   ({pc.clipAmmo}/{pc.ammo})", label);
             }
         }
 
@@ -209,9 +221,9 @@ public class GameHUD : MonoBehaviour
         // controls help (H toggles; auto-shows for the first while)
         if (showHelp)
         {
-            GUI.Box(new Rect(16, h - 190, 350, 174), "");
-            GUI.Label(new Rect(28, h - 182, 330, 162),
-                "<b>CONTROLS</b>\nWASD move   ·   Mouse look\nShift sprint   ·   Space jump\nE  talk / enter & exit cars\nSpace  handbrake (driving)\nF5 save   ·   F9 load\nEsc frees the mouse   ·   H hides this", label);
+            GUI.Box(new Rect(16, h - 210, 350, 194), "");
+            GUI.Label(new Rect(28, h - 202, 330, 182),
+                "<b>CONTROLS</b>\nWASD move   ·   Mouse look\nShift sprint   ·   Space jump\nE  talk / enter & exit cars\nSpace  handbrake (driving)\nR  reload (pistol)\nF5 save   ·   F9 load\nEsc frees the mouse   ·   H hides this", label);
         }
         else
         {

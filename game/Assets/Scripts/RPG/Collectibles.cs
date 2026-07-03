@@ -6,7 +6,7 @@ using UnityEngine;
 public class Collectibles : MonoBehaviour
 {
     public const int Total = 30;
-    public HashSet<int> Collected = new HashSet<int>();
+    [System.NonSerialized] public HashSet<int> Collected = new HashSet<int>();
 
     GameManager gm;
     readonly Dictionary<int, GameObject> active = new Dictionary<int, GameObject>();

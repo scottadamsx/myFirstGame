@@ -15,6 +15,12 @@ public static class StJohnsSceneBuilder
     [MenuItem("St. John's/Build Walkable Scene")]
     public static void Build()
     {
+        if (EditorApplication.isPlaying)
+        {
+            EditorUtility.DisplayDialog("St. John's", "Please exit Play Mode before building the scene.", "OK");
+            return;
+        }
+
         var fbx = AssetDatabase.LoadAssetAtPath<GameObject>(FbxPath);
         if (fbx == null)
         {
@@ -40,11 +46,34 @@ public static class StJohnsSceneBuilder
         foreach (var mr in city.GetComponentsInChildren<MeshRenderer>())
         {
             string n = mr.gameObject.name;
-            if (n.StartsWith("Roads")) mr.sharedMaterial = asphalt;
-            else if (n.StartsWith("Paths")) mr.sharedMaterial = path;
-            else if (n.StartsWith("Sea") || n.StartsWith("Lakes")) mr.sharedMaterial = water;
-            else mr.sharedMaterial = vcol;   // Terrain, Buildings
-            mr.gameObject.AddComponent<MeshCollider>();
+            if (n.StartsWith("Roads"))
+            {
+                mr.sharedMaterial = asphalt;
+                mr.shadowCastingMode = ShadowCastingMode.Off;
+                mr.transform.position += Vector3.up * 0.08f; // Fix z-fighting
+            }
+            else if (n.StartsWith("Paths"))
+            {
+                mr.sharedMaterial = path;
+                mr.shadowCastingMode = ShadowCastingMode.Off;
+                mr.transform.position += Vector3.up * 0.08f; // Fix z-fighting
+            }
+            else if (n.StartsWith("Sea") || n.StartsWith("Lakes"))
+            {
+                mr.sharedMaterial = water;
+                mr.shadowCastingMode = ShadowCastingMode.Off;
+            }
+            else
+            {
+                mr.sharedMaterial = vcol;   // Terrain, Buildings
+            }
+
+            // Don't add colliders to water
+            if (!n.StartsWith("Sea") && !n.StartsWith("Lakes"))
+            {
+                mr.gameObject.AddComponent<MeshCollider>();
+            }
+
             GameObjectUtility.SetStaticEditorFlags(mr.gameObject, StaticEditorFlags.BatchingStatic | StaticEditorFlags.OccludeeStatic);
         }
 

@@ -8,8 +8,14 @@ public class PlayerCombat : MonoBehaviour
     public bool pistolOwned;
     public bool pistolEquipped;
     public int ammo;
+    public int clipAmmo;
+    public int clipSize = 12;
 
     float nextAttack;
+    bool isReloading;
+    float reloadDoneTime;
+    Vector3 currentRecoil;
+    
     GameManager gm;
 
     void Start()
@@ -23,14 +29,42 @@ public class PlayerCombat : MonoBehaviour
         var mouse = Mouse.current;
         if (kb == null || mouse == null) return;
 
-        if (kb.qKey.wasPressedThisFrame && pistolOwned)
+        if (kb.qKey.wasPressedThisFrame && pistolOwned && !isReloading)
         {
             pistolEquipped = !pistolEquipped;
-            GameHUD.Toast(pistolEquipped ? "Pistol out." : "Fists up.");
+            GameHUD.Toast(pistolEquipped ? $"Pistol out. {clipAmmo}/{ammo}" : "Fists up.");
+        }
+
+        if (pistolEquipped && pistolOwned)
+        {
+            if (kb.rKey.wasPressedThisFrame && clipAmmo < clipSize && ammo > 0 && !isReloading)
+            {
+                isReloading = true;
+                reloadDoneTime = Time.time + 1.5f;
+                GameHUD.Toast("Reloading...");
+            }
+
+            if (isReloading && Time.time >= reloadDoneTime)
+            {
+                isReloading = false;
+                int needed = clipSize - clipAmmo;
+                int amount = Mathf.Min(needed, ammo);
+                clipAmmo += amount;
+                ammo -= amount;
+                GameHUD.Toast($"Reloaded. {clipAmmo}/{ammo}");
+            }
+        }
+
+        // Procedural recoil
+        var cam = Camera.main;
+        if (cam != null)
+        {
+            currentRecoil = Vector3.Lerp(currentRecoil, Vector3.zero, Time.deltaTime * 10f);
+            cam.transform.localRotation = Quaternion.Euler(currentRecoil);
         }
 
         if (Cursor.lockState != CursorLockMode.Locked) return;
-        if (mouse.leftButton.wasPressedThisFrame && Time.time >= nextAttack)
+        if (mouse.leftButton.wasPressedThisFrame && Time.time >= nextAttack && !isReloading)
         {
             if (pistolEquipped && pistolOwned) Shoot();
             else Punch();
@@ -65,14 +99,18 @@ public class PlayerCombat : MonoBehaviour
 
     void Shoot()
     {
-        if (ammo <= 0)
+        if (clipAmmo <= 0)
         {
-            GameHUD.Toast("Click — out of rounds. Wince at the Battery sells 'em.");
+            if (ammo > 0) GameHUD.Toast("Click — press R to reload.");
+            else GameHUD.Toast("Click — out of rounds. Wince at the Battery sells 'em.");
             nextAttack = Time.time + 0.4f;
             return;
         }
         nextAttack = Time.time + 0.35f;
-        ammo--;
+        clipAmmo--;
+
+        // Apply recoil
+        currentRecoil += new Vector3(-3f, Random.Range(-1f, 1f), 0);
 
         var cam = Camera.main;
         if (cam == null) return;
@@ -91,6 +129,19 @@ public class PlayerCombat : MonoBehaviour
             }
         }
         Tracer(start + Vector3.down * 0.2f, end);
+        
+        // Muzzle flash
+        var flash = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        Destroy(flash.GetComponent<Collider>());
+        flash.transform.position = start + dir * 0.5f;
+        flash.transform.localScale = Vector3.one * 0.6f;
+        var fmat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+        fmat.SetColor("_BaseColor", new Color(1f, 0.8f, 0.2f));
+        fmat.EnableKeyword("_EMISSION");
+        fmat.SetColor("_EmissionColor", new Color(1f, 0.8f, 0.2f) * 4f);
+        flash.GetComponent<MeshRenderer>().sharedMaterial = fmat;
+        Destroy(flash, 0.06f);
+
         PedestrianSystem.PanicAt(transform.position, 45f);
     }
 

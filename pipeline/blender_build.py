@@ -118,10 +118,11 @@ tmesh = make_mesh_fast("Terrain", tverts, quads_np=tquads, uvs=terrain_uvs)
 gy_, gx_ = np.gradient(HM, STEP)
 slope = np.degrees(np.arctan(np.hypot(gx_, gy_)))
 COLS = {
-    0: (0.36, 0.42, 0.30),   # default scruffy urban green
-    1: (0.33, 0.50, 0.27),   # grass / park
+    0: (0.33, 0.40, 0.29),   # default scruffy green (less olive)
+    1: (0.31, 0.50, 0.26),   # grass / park
     2: (0.16, 0.28, 0.15),   # forest
     3: (0.42, 0.39, 0.30),   # heath / scrub / rock (Signal Hill)
+    4: (0.45, 0.44, 0.41),   # urban lots: pavement/gravel around buildings
 }
 col = np.empty((NY, NX, 3), np.float32)
 for cls, rgb in COLS.items():
@@ -227,7 +228,7 @@ if juncs:
 print(f"junctions: {len(juncs)} discs", flush=True)
 
 walkable = [r for r in roads if r["width"] >= 6]
-sw_parts = [build_ribbons(walkable, 0.30, sidewalk_side=s) for s in (1, -1)]
+sw_parts = [build_ribbons(walkable, 0.24, sidewalk_side=s) for s in (1, -1)]
 sw_parts = [p for p in sw_parts if p]
 if sw_parts:
     sverts = np.concatenate([p[0] for p in sw_parts])
@@ -270,8 +271,10 @@ for bld in VEC["buildings"]:
     # facade UVs: one texture bay = 3 m wide x 1 storey; whole storeys only
     seg_len = np.linalg.norm(poly[nxt] - poly, axis=1)
     cum = np.concatenate([[0.0], np.cumsum(seg_len)[:-1]])
-    u0 = cum / 3.0
-    u1 = (cum + seg_len) / 3.0
+    # per-building UV jitter so windows don't align across neighbours
+    uj = (abs(hash((float(poly[0][0]), float(poly[0][1])))) % 97) / 97.0 * 0.5
+    u0 = cum / 3.0 + uj
+    u1 = (cum + seg_len) / 3.0 + uj
     storeys = max(1.0, round(bld["height"] / 3.0))
     uq = np.zeros((n, 4, 2))
     uq[:, 0, 0] = u0

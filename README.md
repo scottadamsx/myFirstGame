@@ -35,17 +35,17 @@ and colors, hand-built landmarks, and the vibe (fog, sideways rain, gulls).
 
 ## Milestones
 
-- [ ] **M0 — Setup:** tooling installed, repo scaffolded, one Unity tutorial done
-- [ ] **M1 — Walk:** third-person controller in a greybox Water Street
-- [ ] **M2 — Drive:** drivable car, enter/exit
-- [ ] **M3 — Real city data:** OSM+lidar pipeline; drive harbour → Signal Hill on real geometry
+- [x] **M0 — Setup:** tooling installed, repo scaffolded, one Unity tutorial done
+- [x] **M1 — Walk:** third-person controller in a greybox Water Street
+- [x] **M2 — Drive:** drivable car, enter/exit
+- [x] **M3 — Real city data:** OSM+lidar pipeline; procedural roads on real geometry with visual upgrades
 - [ ] **M4 — Alive:** pedestrians, traffic, day/night, fog & weather
 - [ ] **M5 — RPG layer:** dialogue, quests, inventory, save/load, minimap
 - [ ] **M6 — Scale out:** full urban footprint, streaming, district fidelity passes
 - [ ] **M7 — Demo:** polished downtown slice on itch.io
 
 Fidelity is applied district by district, downtown first: Water St, Duckworth,
-Gower, George St, the harbour, Signal Hill.
+Gower, George St, the harbour, Signal Hill. See `docs/TRIPLE_A_ROADMAP.md` for our AAA fidelity plans.
 
 ## Note on Git LFS
 

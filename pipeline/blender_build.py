@@ -190,10 +190,16 @@ if pv:
 print(f"roads: {len(roads)} ways, paths: {len(paths)}", flush=True)
 
 # ---------------- buildings -----------------------------------------------------
-bverts, bquads, bngons = [], [], []
-loop_cols = []  # per-loop RGBA, appended in same order faces are added
-wall_uvs, roof_uvs = [], []
+# Rectangular buildings get GABLE roofs (this is St. John's); others stay flat.
+# Face order in make_mesh_fast is quads -> tris -> ngons, so per-loop colors/uvs
+# are accumulated in three parallel groups and concatenated in that order.
+# UV convention: uv.y counts storeys (shader picks door/window cell);
+# uv.x = -1 marks roof slope loops (shader renders flat vertex color).
+bverts, bquads, btris, bngons = [], [], [], []
+quad_cols, tri_cols, ngon_cols = [], [], []
+quad_uvs, tri_uvs, ngon_uvs = [], [], []
 vbase = 0
+gable_count = 0
 for bld in VEC["buildings"]:
     poly = np.asarray(bld["poly"], dtype=np.float64)
     n = len(poly)
@@ -205,15 +211,12 @@ for bld in VEC["buildings"]:
     bot = vbase + np.arange(n)
     top = vbase + n + np.arange(n)
     nxt = np.roll(np.arange(n), -1)
-    wall = np.stack([bot, bot[nxt], top[nxt], top], axis=1)
-    bquads.append(wall)
+    bquads.append(np.stack([bot, bot[nxt], top[nxt], top], axis=1))
     c = bld["color"] + [1.0]
     rc = [ch * 0.55 for ch in bld["color"]] + [1.0]
-    loop_cols.extend([c] * (4 * n))       # wall loops
-    bngons.append(top.tolist())           # roof ngon (CCW -> +Z normal)
-    loop_cols.extend([rc] * n)            # roof loops
+    quad_cols.extend([c] * (4 * n))
 
-    # facade UVs: one texture tile = 3 m wide x 1 storey; whole storeys only
+    # facade UVs: one texture bay = 3 m wide x 1 storey; whole storeys only
     seg_len = np.linalg.norm(poly[nxt] - poly, axis=1)
     cum = np.concatenate([[0.0], np.cumsum(seg_len)[:-1]])
     u0 = cum / 3.0
@@ -226,27 +229,54 @@ for bld in VEC["buildings"]:
     uq[:, 2, 1] = storeys
     uq[:, 3, 0] = u0
     uq[:, 3, 1] = storeys
-    wall_uvs.append(uq.reshape(-1, 2))
-    roof_uvs.append(poly / 3.0)
-    vbase += 2 * n
+    quad_uvs.append(uq.reshape(-1, 2))
+
+    ridge_h = 0.0
+    if n == 4 and bld["height"] < 20:
+        ends = (0, 2) if seg_len[0] + seg_len[2] <= seg_len[1] + seg_len[3] else (1, 3)
+        ridge_h = min(2.8, 0.4 * min(seg_len[ends[0]], seg_len[ends[1]]))
+
+    if ridge_h > 0.8:
+        gable_count += 1
+        a0, b0 = ends
+        a1, b1 = (a0 + 1) % 4, (b0 + 1) % 4
+        m_a = (poly[a0] + poly[a1]) / 2
+        m_b = (poly[b0] + poly[b1]) / 2
+        r0, r1 = vbase + 2 * n, vbase + 2 * n + 1
+        bverts.append(np.array([[m_a[0], m_a[1], zt + ridge_h],
+                                [m_b[0], m_b[1], zt + ridge_h]]))
+        # two roof slopes over the long edges
+        bquads.append(np.array([[top[a1], top[b0], r1, r0],
+                                [top[b1], top[a0], r0, r1]]))
+        quad_cols.extend([rc] * 8)
+        quad_uvs.append(np.full((8, 2), [-1.0, 0.0]))
+        # two triangular gable ends — siding, like the walls
+        btris.append(np.array([[top[a0], top[a1], r0],
+                               [top[b0], top[b1], r1]]))
+        tri_cols.extend([c] * 6)
+        apex_v = storeys + ridge_h / 3.0
+        tri_uvs.append(np.array([
+            [u0[a0], storeys], [u1[a0], storeys], [(u0[a0] + u1[a0]) / 2, apex_v],
+            [u0[b0], storeys], [u1[b0], storeys], [(u0[b0] + u1[b0]) / 2, apex_v]]))
+        vbase += 2 * n + 2
+    else:
+        bngons.append(top.tolist())
+        ngon_cols.extend([rc] * n)
+        ngon_uvs.append(np.full((n, 2), [-1.0, 0.0]))
+        vbase += 2 * n
 
 if bverts:
-    # make_mesh_fast adds all quads first, then ngons — reorder loop colors to match
-    wall_cols, roof_cols = [], []
-    i = 0
-    for bld in VEC["buildings"]:
-        n = len(bld["poly"])
-        wall_cols.extend(loop_cols[i:i + 4 * n]); i += 4 * n
-        roof_cols.extend(loop_cols[i:i + n]); i += n
-    building_uvs = np.concatenate(wall_uvs + roof_uvs)   # walls-first order matches face order
+    building_uvs = np.concatenate(quad_uvs + tri_uvs + ngon_uvs)
     bmesh_ = make_mesh_fast("Buildings", np.concatenate(bverts),
-                            quads_np=np.concatenate(bquads), ngons=bngons, uvs=building_uvs)
+                            quads_np=np.concatenate(bquads),
+                            tris_np=np.concatenate(btris) if btris else None,
+                            ngons=bngons, uvs=building_uvs)
     vc = bmesh_.color_attributes.new(name="Col", type="FLOAT_COLOR", domain="CORNER")
-    allc = np.asarray(wall_cols + roof_cols, dtype=np.float32)
+    allc = np.asarray(quad_cols + tri_cols + ngon_cols, dtype=np.float32)
     vc.data.foreach_set("color", allc.ravel())
     bmesh_.materials.append(flat_material("BuildingMat", None, rough=0.85, use_vcol=True))
     new_object("Buildings", bmesh_)
-print(f"buildings: {len(VEC['buildings'])}", flush=True)
+print(f"buildings: {len(VEC['buildings'])} ({gable_count} gabled)", flush=True)
 
 # ---------------- water ---------------------------------------------------------
 water_mat = flat_material("Water", (0.028, 0.10, 0.16), rough=0.12)

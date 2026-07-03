@@ -27,33 +27,47 @@ def smooth_noise(size, cell, lo, hi):
     return np.array(img, dtype=np.float32)   # writable copy
 
 
-# ---------------- facade: siding + window ----------------
+# ---------------- facade: two 256px cells — ground floor (door) | upper (window)
 f = np.full((S, S, 3), 208, dtype=np.float32)
 # clapboard rows every ~15 cm (26 px), with a darker shadow line
 for y in range(0, S, 26):
     f[y:y + 4, :] -= 16
     f[y + 4:y + 6, :] += 6
 f += rng.normal(0, 3.5, (S, S, 3))
-
 img = Image.fromarray(np.clip(f, 0, 255).astype(np.uint8))
+
+
+def window(d_, x0, y0, x1, y1):
+    d_.rectangle([x0 - 4, y1, x1 + 4, y1 + 10], fill=(120, 118, 114))   # sill shadow
+    d_.rectangle([x0, y0, x1, y1], fill=(232, 230, 224))                # frame
+    gx0, gy0, gx1, gy1 = x0 + 11, y0 + 11, x1 - 11, y1 - 11
+    glass = np.zeros((gy1 - gy0, gx1 - gx0, 3), dtype=np.float32)
+    grad = np.linspace(0.0, 1.0, glass.shape[0])[:, None]
+    glass[..., 0] = 52 + grad * 30
+    glass[..., 1] = 60 + grad * 32
+    glass[..., 2] = 74 + grad * 34
+    img.paste(Image.fromarray(np.clip(glass, 0, 255).astype(np.uint8)), (gx0, gy0))
+    d2 = ImageDraw.Draw(img)
+    d2.line([(gx0, gy1 - (gy1 - gy0) // 3), (gx1, gy0 + 6)], fill=(140, 150, 160), width=7)
+    mx, my = (x0 + x1) // 2, (y0 + y1) // 2
+    d2.rectangle([mx - 4, y0, mx + 4, y1], fill=(232, 230, 224))
+    d2.rectangle([x0, my - 4, x1, my + 4], fill=(232, 230, 224))
+
+
 d = ImageDraw.Draw(img)
-wx0, wy0, wx1, wy1 = 162, 96, 350, 350          # window incl. frame
-d.rectangle([wx0 - 6, wy1, wx1 + 6, wy1 + 14], fill=(120, 118, 114))   # sill shadow
-d.rectangle([wx0, wy0, wx1, wy1], fill=(232, 230, 224))                # frame
-gx0, gy0, gx1, gy1 = wx0 + 16, wy0 + 16, wx1 - 16, wy1 - 16
-glass = np.zeros((gy1 - gy0, gx1 - gx0, 3), dtype=np.float32)
-grad = np.linspace(0.0, 1.0, glass.shape[0])[:, None]     # (H,1) broadcasts over width
-glass[..., 0] = 52 + grad * 30
-glass[..., 1] = 60 + grad * 32
-glass[..., 2] = 74 + grad * 34
-gimg = Image.fromarray(np.clip(glass, 0, 255).astype(np.uint8))
-img.paste(gimg, (gx0, gy0))
+# LEFT cell (u 0..0.5): ground floor — small window + front door reaching the bottom
+window(d, 28, 200, 120, 350)
 d = ImageDraw.Draw(img)
-d.line([(gx0, gy1 - (gy1 - gy0) // 3), (gx1, gy0 + 10)], fill=(140, 150, 160), width=10)  # reflection streak
-mx = (wx0 + wx1) // 2
-my = (wy0 + wy1) // 2
-d.rectangle([mx - 5, wy0, mx + 5, wy1], fill=(232, 230, 224))          # glazing bars
-d.rectangle([wx0, my - 5, wx1, my + 5], fill=(232, 230, 224))
+d.rectangle([146, 236, 234, 511], fill=(238, 236, 230))                # door frame
+d.rectangle([156, 248, 224, 511], fill=(72, 52, 46))                   # door slab
+d.rectangle([166, 262, 214, 330], fill=(88, 66, 58))                   # top panel
+d.rectangle([166, 350, 214, 460], fill=(88, 66, 58))                   # bottom panel
+d.ellipse([206, 380, 218, 392], fill=(210, 190, 120))                  # knob
+d.rectangle([140, 224, 240, 240], fill=(180, 176, 168))                # lintel
+
+# RIGHT cell (u 0.5..1): upper storey — the classic window, centered
+window(d, 256 + 90, 96, 256 + 230, 300)
+
 img.save(DEST / "facade.png")
 print("wrote", DEST / "facade.png")
 

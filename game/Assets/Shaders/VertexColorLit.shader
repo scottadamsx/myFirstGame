@@ -5,6 +5,9 @@ Shader "StJohns/VertexColorLit"
     {
         _BaseColor("Base Color", Color) = (1, 1, 1, 1)
         _BaseMap("Detail Texture", 2D) = "white" {}
+        // 1 = facade mode: texture holds [ground-floor | upper-floor] cells,
+        // uv.y counts storeys, uv.x < 0 marks roof planes (flat vertex color)
+        _FacadeMode("Facade Mode", Float) = 0
     }
     SubShader
     {
@@ -48,6 +51,7 @@ Shader "StJohns/VertexColorLit"
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseColor;
                 float4 _BaseMap_ST;
+                float _FacadeMode;
             CBUFFER_END
 
             Varyings vert(Attributes IN)
@@ -69,7 +73,25 @@ Shader "StJohns/VertexColorLit"
                 Light mainLight = GetMainLight(shadowCoord);
                 float ndl = saturate(dot(n, mainLight.direction));
                 float3 lighting = mainLight.color * mainLight.shadowAttenuation * ndl + SampleSH(n);
-                float3 detail = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv).rgb;
+                float3 detail;
+                if (_FacadeMode > 0.5)
+                {
+                    if (IN.uv.x < -0.5)
+                    {
+                        detail = float3(1, 1, 1);              // roof plane: vertex color only
+                    }
+                    else
+                    {
+                        float cellShift = IN.uv.y < 1.0 ? 0.0 : 0.5;   // ground floor gets the door
+                        float2 cuv = frac(IN.uv);
+                        detail = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap,
+                                                  float2(cuv.x * 0.5 + cellShift, cuv.y)).rgb;
+                    }
+                }
+                else
+                {
+                    detail = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, IN.uv).rgb;
+                }
                 float3 c = detail * IN.color.rgb * _BaseColor.rgb * lighting;
                 c = MixFog(c, IN.fogCoord);
                 return half4(c, 1);

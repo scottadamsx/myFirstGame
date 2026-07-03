@@ -20,6 +20,7 @@ public class VisualUpgrade : MonoBehaviour
 
         var buildingsMat = new Material(vcShader);
         buildingsMat.SetTexture("_BaseMap", facade);
+        buildingsMat.SetFloat("_FacadeMode", 1f);
 
         var terrainMat = new Material(vcShader);
         terrainMat.SetTexture("_BaseMap", grass);

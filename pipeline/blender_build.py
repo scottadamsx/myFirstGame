@@ -194,6 +194,35 @@ if pv:
     m = make_mesh_fast("Paths", pv[0], quads_np=pv[1], uvs=pv[2])
     m.materials.append(flat_material("Path", (0.34, 0.31, 0.27), rough=1.0))
     new_object("Paths", m)
+# junction discs cover the seams where road ribbons overlap
+juncs = VEC.get("junctions", [])
+if juncs:
+    jverts, jtris = [], []
+    base = 0
+    SEGS = 16
+    ang = np.linspace(0, 2 * np.pi, SEGS, endpoint=False)
+    for j in juncs:
+        cx, cy, cz, r = j["x"], j["y"], j["z"] + 0.20, j["r"]
+        ring = np.column_stack([cx + np.cos(ang) * r, cy + np.sin(ang) * r, np.full(SEGS, cz)])
+        jverts.append(np.vstack([[cx, cy, cz], ring]))
+        idx = np.arange(SEGS)
+        jtris.append(np.column_stack([np.zeros(SEGS, int) + base,
+                                      base + 1 + idx,
+                                      base + 1 + (idx + 1) % SEGS]))
+        base += SEGS + 1
+    jv = np.concatenate(jverts)
+    # sample the asphalt away from the dashed center line (u around 0.75)
+    juv_pts = np.concatenate([np.column_stack([0.75 + 0.2 * np.cos(ang0), v0 / 12.0])
+                              for ang0, v0 in [(np.concatenate([[0], ang]),
+                                                np.concatenate([[c[1]], c[1] + np.sin(ang) * rr]))
+                                               for c, rr in zip([(j["x"], j["y"]) for j in juncs],
+                                                                [j["r"] for j in juncs])]])
+    jtris_all = np.concatenate(jtris)
+    m = make_mesh_fast("RoadsJunctions", jv, tris_np=jtris_all, uvs=juv_pts[jtris_all.ravel()])
+    m.materials.append(flat_material("Asphalt2", (0.055, 0.055, 0.06), rough=0.95))
+    new_object("RoadsJunctions", m)
+print(f"junctions: {len(juncs)} discs", flush=True)
+
 walkable = [r for r in roads if r["width"] >= 6]
 sw_parts = [build_ribbons(walkable, 0.30, sidewalk_side=s) for s in (1, -1)]
 sw_parts = [p for p in sw_parts if p]

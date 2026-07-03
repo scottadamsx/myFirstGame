@@ -199,6 +199,40 @@ for w in ways.values():
         "kind": "path" if hw in PATH_CLASSES else "road",
     })
 
+# ---- junctions: cluster road endpoints, harmonize elevations, emit discs
+# OSM splits ways at intersections, so junctions are where way endpoints meet.
+# Different ways' smoothed elevations disagree there -> bumps when driving.
+junc_map = {}
+for ri, r in enumerate(roads):
+    if r["kind"] != "road":
+        continue
+    for end in (0, -1):
+        p = r["pts"][end]
+        key = (round(p[0] / 3), round(p[1] / 3))    # 3m cluster grid
+        junc_map.setdefault(key, []).append((ri, end))
+
+junctions = []
+for key, members in junc_map.items():
+    if len(members) < 2:
+        continue
+    zs_here = [roads[ri]["zs"][end] for ri, end in members]
+    z = sum(zs_here) / len(zs_here)
+    xs_here = [roads[ri]["pts"][end][0] for ri, end in members]
+    ys_here = [roads[ri]["pts"][end][1] for ri, end in members]
+    cx, cy = sum(xs_here) / len(xs_here), sum(ys_here) / len(ys_here)
+    wmax = max(roads[ri]["width"] for ri, end in members)
+    # snap each incident way's end to the shared elevation, blending 4 pts inward
+    for ri, end in members:
+        rz = roads[ri]["zs"]
+        idxs = range(0, min(5, len(rz))) if end == 0 else range(len(rz) - 1, max(len(rz) - 6, -1), -1)
+        for k, i in enumerate(idxs):
+            f = 1.0 - k / 5.0
+            rz[i] = round(rz[i] * (1 - f) + z * f, 2)
+    if len(members) >= 3:                            # real intersection, not a continuation
+        junctions.append({"x": round(cx, 2), "y": round(cy, 2), "z": round(z, 2),
+                          "r": round(wmax * 0.62 + 1.2, 2)})
+print(f"junctions: {len(junctions)} discs, {len(junc_map)} endpoint clusters harmonized")
+
 # ---- carve the terrain to meet the roads (kills floating/poking-through)
 zimg = Image.new("F", (nx, ny), -1000.0)
 zdraw = ImageDraw.Draw(zimg)
@@ -211,6 +245,10 @@ for r in roads:
             [(a[0] - x_min) / STEP, (a[1] - y_min) / STEP,
              (bpt[0] - x_min) / STEP, (bpt[1] - y_min) / STEP],
             fill=float((za + zb) / 2), width=wpx)
+for j in junctions:   # carve under junction discs too
+    px, py_ = (j["x"] - x_min) / STEP, (j["y"] - y_min) / STEP
+    pr = (j["r"] + 2.0) / STEP
+    zdraw.ellipse([px - pr, py_ - pr, px + pr, py_ + pr], fill=float(j["z"]))
 zarr = np.asarray(zimg)
 road_mask = zarr > -999
 # roads define the ground exactly (carve high spots AND fill dips under them)
@@ -403,7 +441,7 @@ np.save(OUT / f"{NAME}_landcover.npy", landcover)
 
 # ---------------- write vectors + meta -----------------------------------------
 (OUT / f"{NAME}_vectors.json").write_text(json.dumps(
-    {"roads": roads, "buildings": buildings, "water": water}))
+    {"roads": roads, "buildings": buildings, "water": water, "junctions": junctions}))
 meta = {"name": NAME, "lat0": LAT0, "lon0": LON0, "step": STEP,
         "nx": nx, "ny": ny, "x_min": round(x_min, 2), "y_min": round(y_min, 2)}
 (OUT / f"{NAME}_meta.json").write_text(json.dumps(meta))

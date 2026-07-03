@@ -51,8 +51,10 @@ public class VehicleManager : MonoBehaviour
                 }
             }
         }
+        bestDir.y = 0;                                  // cars sit flat, not nose-down
+        if (bestDir == Vector3.zero) bestDir = Vector3.forward;
         Vector3 pos = CoordinateMapper.DropToGround(bestPos + Vector3.up * 5f, 5f) + Vector3.up * 0.3f;
-        var car = ArcadeCar.SpawnParked(pos, Quaternion.LookRotation(bestDir), new Color(0.8f, 0.12f, 0.1f));
+        var car = ArcadeCar.SpawnParked(pos, Quaternion.LookRotation(bestDir.normalized), new Color(0.8f, 0.12f, 0.1f));
         car.gameObject.name = "StarterCar";
         cars.Add(car);
         Debug.Log($"StarterCar at {pos}, {Vector3.Distance(pos, p):F0} m from player");
@@ -80,8 +82,10 @@ public class VehicleManager : MonoBehaviour
             int p = rng.Next(r.PointCount - 1);
             Vector3 a = gm.Mapper.ToUnity(r.xs[p], r.ys[p], r.zs[p]);
             Vector3 b = gm.Mapper.ToUnity(r.xs[p + 1], r.ys[p + 1], r.zs[p + 1]);
-            Vector3 dir = (b - a).normalized;
-            if (dir == Vector3.zero) continue;
+            Vector3 dir = b - a;
+            dir.y = 0;                                  // flat parking rotation
+            if (dir.sqrMagnitude < 0.01f) continue;
+            dir.Normalize();
             Vector3 side = Vector3.Cross(Vector3.up, dir).normalized;
             // park in-lane rather than at the curb — row houses sit right at the
             // road edge downtown and edge-parked cars clipped into their colliders

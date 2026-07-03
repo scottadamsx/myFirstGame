@@ -48,11 +48,21 @@ public class CoordinateMapper
         Debug.Log($"CoordinateMapper: sx={sx} sz={sz}, mean error {bestErr / Mathf.Max(1, samples.Count):F2} m over {samples.Count} samples");
     }
 
-    /// Snap a mapped position onto whatever surface is below it.
+    /// Snap a mapped position onto the CITY surface below it — ignores trigger
+    /// colliders and anything that isn't part of the city mesh (cars, NPCs),
+    /// so spawns can't stack on top of other spawned things.
     public static Vector3 DropToGround(Vector3 pos, float probeUp = 60f)
     {
-        if (Physics.Raycast(pos + Vector3.up * probeUp, Vector3.down, out var hit, probeUp + 400f))
-            return hit.point;
+        var hits = Physics.RaycastAll(pos + Vector3.up * probeUp, Vector3.down, probeUp + 400f,
+                                      Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        float bestY = float.MinValue;
+        bool found = false;
+        foreach (var h in hits)
+        {
+            if (h.transform.root.name != "City_Downtown") continue;
+            if (h.point.y > bestY) { bestY = h.point.y; found = true; }
+        }
+        if (found) return new Vector3(pos.x, bestY, pos.z);
         return pos;
     }
 }
